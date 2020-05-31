@@ -1,7 +1,6 @@
 package gtm
 
 import (
-	"fmt"
 	"log"
 	"testing"
 )
@@ -38,17 +37,8 @@ type OrderCreator struct {
 
 func (o *OrderCreator) Prepare() (bool, error) {
 	log.Printf("order prepare. id = %v, amount = %v", o.OrderID, o.Amount)
-	return false, fmt.Errorf("xxx")
-}
-
-func (o *OrderCreator) Commit() error {
-	log.Printf("order commit")
-	return nil
-}
-
-func (o *OrderCreator) Rollback() error {
-	log.Printf("order rollback")
-	return nil
+	return false, nil
+	// return false, fmt.Errorf("xxx")
 }
 
 func TestGtm(t *testing.T) {
@@ -56,8 +46,7 @@ func TestGtm(t *testing.T) {
 	order := OrderCreator{1990001, 10001, 11, 99}
 
 	gtm := New()
-	gtm.AddPartner(&amount)
-	gtm.AddPartner(&order)
+	gtm.AddPartners([]NormalPartner{&amount}, &order, nil)
 	ok, err := gtm.Execute()
 	if err != nil {
 		t.Errorf("gtm execute failed: %v", err)
