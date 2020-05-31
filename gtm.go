@@ -17,19 +17,17 @@ const (
 )
 
 type NormalPartner interface {
-	// todo rename to execute
-	Prepare() (bool, error)
-	// todo rename to on success
-	Commit() error
-	Rollback() error
+	Do() (bool, error)
+	DoNext() error
+	Undo() error
 }
 
 type UncertainPartner interface {
-	Prepare() (bool, error)
+	Do() (bool, error)
 }
 
 type CertainPartner interface {
-	Commit() error
+	DoNext() error
 }
 
 func New() *GTM {
@@ -43,18 +41,18 @@ func (g *GTM) AddPartners(normal []NormalPartner, uncertain UncertainPartner, ce
 }
 
 func (g *GTM) Execute() (result int, err error) {
-	if ok, failOffset, err := g.prepareAll(); err != nil {
+	if ok, failOffset, err := g.do(); err != nil {
 		if ok == Unknown {
-			return Unknown, fmt.Errorf("prepare err: %v", err)
+			return Unknown, fmt.Errorf("do err: %v", err)
 		}
 
-		if err := g.rollbackAll(failOffset); err != nil {
-			return Fail, fmt.Errorf("rollback failed: %v", err)
+		if err := g.undo(failOffset); err != nil {
+			return Fail, fmt.Errorf("undo failed: %v", err)
 		} else {
 			return Fail, nil
 		}
 	} else {
-		if err := g.commitAll(); err != nil {
+		if err := g.doNext(); err != nil {
 			return Success, fmt.Errorf("commit failed: %v", err)
 		} else {
 			return Success, nil
@@ -62,46 +60,46 @@ func (g *GTM) Execute() (result int, err error) {
 	}
 }
 
-func (g *GTM) prepareAll() (result int, failOffset int, err error) {
+func (g *GTM) do() (result int, failOffset int, err error) {
 	for k, v := range g.normalPartners {
-		if ok, err := v.Prepare(); err != nil {
-			return Fail, k, fmt.Errorf("prepare err: %v", err)
+		if ok, err := v.Do(); err != nil {
+			return Fail, k, fmt.Errorf("do err: %v", err)
 		} else if !ok {
-			return Fail, k - 1, fmt.Errorf("prepare failed")
+			return Fail, k - 1, fmt.Errorf("do failed")
 		}
 	}
 
 	if g.uncertainPartner != nil {
-		if ok, err := g.uncertainPartner.Prepare(); err != nil {
-			return Unknown, len(g.normalPartners) - 1, fmt.Errorf("uncertain partner prepare err: %v", err)
+		if ok, err := g.uncertainPartner.Do(); err != nil {
+			return Unknown, len(g.normalPartners) - 1, fmt.Errorf("uncertain partner do err: %v", err)
 		} else if !ok {
-			return Fail, len(g.normalPartners) - 1, fmt.Errorf("prepare failed")
+			return Fail, len(g.normalPartners) - 1, fmt.Errorf("do failed")
 		}
 	}
 
 	return Success, 0, nil
 }
 
-func (g *GTM) rollbackAll(failOffset int) error {
+func (g *GTM) undo(failOffset int) error {
 	for i := 0; i <= failOffset; i++ {
-		if err := g.normalPartners[i].Rollback(); err != nil {
-			return fmt.Errorf("rollback failed: %v", err)
+		if err := g.normalPartners[i].Undo(); err != nil {
+			return fmt.Errorf("partner undo failed: %v", err)
 		}
 	}
 
 	return nil
 }
 
-func (g *GTM) commitAll() error {
+func (g *GTM) doNext() error {
 	for _, v := range g.normalPartners {
-		if err := v.Commit(); err != nil {
-			return fmt.Errorf("commit failed: %v", err)
+		if err := v.DoNext(); err != nil {
+			return fmt.Errorf("partner DoNext failed: %v", err)
 		}
 	}
 
 	for _, v := range g.certainPartners {
-		if err := v.Commit(); err != nil {
-			return fmt.Errorf("commit failed: %v", err)
+		if err := v.DoNext(); err != nil {
+			return fmt.Errorf("partner DoNext failed: %v", err)
 		}
 	}
 

@@ -13,18 +13,18 @@ type AmountChanger struct {
 	Remark     string
 }
 
-func (a *AmountChanger) Prepare() (bool, error) {
-	log.Printf("amount prepare. id = %v, amount = %v", a.OrderID, a.Amount)
+func (a *AmountChanger) Do() (bool, error) {
+	log.Printf("amount do. id = %v, amount = %v", a.OrderID, a.Amount)
 	return true, nil
 }
 
-func (a *AmountChanger) Commit() error {
-	log.Printf("amount commit")
+func (a *AmountChanger) DoNext() error {
+	log.Printf("amount do next")
 	return nil
 }
 
-func (a *AmountChanger) Rollback() error {
-	log.Printf("amount rollback")
+func (a *AmountChanger) Undo() error {
+	log.Printf("amount undo")
 	return nil
 }
 
@@ -35,8 +35,8 @@ type OrderCreator struct {
 	Amount    int
 }
 
-func (o *OrderCreator) Prepare() (bool, error) {
-	log.Printf("order prepare. id = %v, amount = %v", o.OrderID, o.Amount)
+func (o *OrderCreator) Do() (bool, error) {
+	log.Printf("order do. id = %v, amount = %v", o.OrderID, o.Amount)
 	return false, nil
 	// return false, fmt.Errorf("xxx")
 }
