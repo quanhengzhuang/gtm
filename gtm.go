@@ -10,6 +10,7 @@ type GTM struct {
 	normalPartners   []NormalPartner
 	uncertainPartner UncertainPartner
 	certainPartners  []CertainPartner
+	asyncPartners    []CertainPartner
 }
 
 type Result int8
@@ -49,10 +50,22 @@ func New() *GTM {
 	return &GTM{}
 }
 
-func (g *GTM) AddPartners(normal []NormalPartner, uncertain UncertainPartner, certain []CertainPartner) {
+func (g *GTM) AddPartners(normal []NormalPartner, uncertain UncertainPartner, certain []CertainPartner) *GTM {
 	g.normalPartners = normal
 	g.uncertainPartner = uncertain
 	g.certainPartners = certain
+
+	return g
+}
+
+func (g *GTM) AddAsyncPartners(certain []CertainPartner) *GTM {
+	g.asyncPartners = certain
+
+	return g
+}
+
+func (g *GTM) ExecuteBackground() {
+
 }
 
 func (g *GTM) Execute() (result int, err error) {
