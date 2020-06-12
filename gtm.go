@@ -13,12 +13,12 @@ type GTM struct {
 	asyncPartners    []CertainPartner
 }
 
-type Result int8
+type Result string
 
 const (
-	Success = 0
-	Fail    = 1
-	Unknown = -1
+	Success   = "success"
+	Fail      = "fail"
+	Uncertain = "uncertain"
 )
 
 // NormalPartner is a normal participant.
