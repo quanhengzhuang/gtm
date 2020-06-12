@@ -5,14 +5,17 @@ import (
 )
 
 // GTM is the definition of global transaction manager.
-// Including multiple normalPartners, one uncertainPartner, multiple certainPartners.
+// Including multiple NormalPartners, one UncertainPartner, multiple CertainPartners.
 type GTM struct {
-	name string
+	ID   int
+	Name string
 
-	normalPartners   []NormalPartner
-	uncertainPartner UncertainPartner
-	certainPartners  []CertainPartner
-	asyncPartners    []CertainPartner
+	NormalPartners   []NormalPartner
+	UncertainPartner UncertainPartner
+	CertainPartners  []CertainPartner
+	AsyncPartners    []CertainPartner
+
+	storage Storage
 }
 
 type Result string
@@ -21,6 +24,10 @@ const (
 	Success   Result = "success"
 	Fail      Result = "fail"
 	Uncertain Result = "uncertain"
+)
+
+var (
+	defaultStorage Storage
 )
 
 // NormalPartner is a normal participant.
@@ -49,24 +56,39 @@ type CertainPartner interface {
 }
 
 func New() *GTM {
-	return &GTM{}
+	if defaultStorage == nil {
+		panic("default storage is nil")
+	}
+
+	return &GTM{
+		ID:      defaultStorage.GenerateID(),
+		storage: defaultStorage,
+	}
 }
 
 func (g *GTM) SetName(name string) *GTM {
-	g.name = name
+	g.Name = name
 	return g
 }
 
+func (g *GTM) GetID() int {
+	return g.ID
+}
+
+func SetStorage(storage Storage) {
+	defaultStorage = storage
+}
+
 func (g *GTM) AddPartners(normal []NormalPartner, uncertain UncertainPartner, certain []CertainPartner) *GTM {
-	g.normalPartners = normal
-	g.uncertainPartner = uncertain
-	g.certainPartners = certain
+	g.NormalPartners = normal
+	g.UncertainPartner = uncertain
+	g.CertainPartners = certain
 
 	return g
 }
 
 func (g *GTM) AddAsyncPartners(certain []CertainPartner) *GTM {
-	g.asyncPartners = certain
+	g.AsyncPartners = certain
 
 	return g
 }
@@ -76,6 +98,14 @@ func (g *GTM) ExecuteBackground() {
 }
 
 func (g *GTM) Execute() (result Result, err error) {
+	if err := g.storage.SaveTransaction(g); err != nil {
+		return Fail, fmt.Errorf("save transaction failed: %v", err)
+	}
+
+	return g.execute()
+}
+
+func (g *GTM) execute() (result Result, err error) {
 	result, undoOffset, err := g.do()
 	switch result {
 	case Success:
@@ -90,7 +120,7 @@ func (g *GTM) Execute() (result Result, err error) {
 }
 
 func (g *GTM) do() (result Result, undoOffset int, err error) {
-	for current, partner := range g.normalPartners {
+	for current, partner := range g.NormalPartners {
 		result, err := partner.Do()
 		switch result {
 		case Success:
@@ -104,13 +134,13 @@ func (g *GTM) do() (result Result, undoOffset int, err error) {
 		}
 	}
 
-	if g.uncertainPartner != nil {
-		result, err := g.uncertainPartner.Do()
+	if g.UncertainPartner != nil {
+		result, err := g.UncertainPartner.Do()
 		switch result {
 		case Success:
 			// success
 		case Fail:
-			return Fail, len(g.normalPartners) - 1, fmt.Errorf("do's failed: %v", err)
+			return Fail, len(g.NormalPartners) - 1, fmt.Errorf("do's failed: %v", err)
 		case Uncertain:
 			return Uncertain, 0, fmt.Errorf("uncertain partner do err: %v", err)
 		default:
@@ -123,7 +153,7 @@ func (g *GTM) do() (result Result, undoOffset int, err error) {
 
 func (g *GTM) undo(failOffset int) error {
 	for i := 0; i <= failOffset; i++ {
-		if err := g.normalPartners[i].Undo(); err != nil {
+		if err := g.NormalPartners[i].Undo(); err != nil {
 			return fmt.Errorf("partner's Undo() failed: %v", err)
 		}
 	}
@@ -132,13 +162,13 @@ func (g *GTM) undo(failOffset int) error {
 }
 
 func (g *GTM) doNext() error {
-	for _, v := range g.normalPartners {
+	for _, v := range g.NormalPartners {
 		if err := v.DoNext(); err != nil {
 			return fmt.Errorf("partner's DoNext() failed: %v", err)
 		}
 	}
 
-	for _, v := range g.certainPartners {
+	for _, v := range g.CertainPartners {
 		if err := v.DoNext(); err != nil {
 			return fmt.Errorf("partner's DoNext() failed: %v", err)
 		}

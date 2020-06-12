@@ -1,9 +1,57 @@
 package gtm
 
 import (
+	"bytes"
+	"encoding/gob"
 	"log"
 	"testing"
 )
+
+type EmptyStorage struct{}
+
+func (s *EmptyStorage) GenerateID() int {
+	id := 202006130000001
+	log.Printf("[storage] generate ID: %v", id)
+	return id
+}
+
+func (s *EmptyStorage) SaveTransaction(g *GTM) (err error) {
+	log.Printf("[storage] save transaction origin: %+v", g)
+
+	var buffer bytes.Buffer
+	gob.Register(&AmountChanger{})
+	gob.Register(&OrderCreator{})
+
+	err = gob.NewEncoder(&buffer).Encode(g)
+	log.Printf("[storage] save transaction encode. err:%v, value:%+v", err, buffer)
+
+	var g2 GTM
+	err = gob.NewDecoder(&buffer).Decode(&g2)
+	log.Printf("[storage] save transaction decode. err:%v, value:%+v, %+v", err, g2, g2.NormalPartners[0])
+
+	return nil
+}
+
+func (s *EmptyStorage) SaveTransactionResult(id int, result Result) error {
+	return nil
+}
+
+func (s *EmptyStorage) SavePartnerResult(id int, offset int, result Result) error {
+	return nil
+}
+
+func (s *EmptyStorage) GetUncertainTransactions(count int) ([]*GTM, error) {
+	return nil, nil
+}
+
+func init() {
+	SetStorage(&EmptyStorage{})
+}
+
+func (a *AmountChanger) Do() (Result, error) {
+	log.Printf("amount do. ID = %v, amount = %v", a.OrderID, a.Amount)
+	return Success, nil
+}
 
 type AmountChanger struct {
 	OrderID    int
@@ -13,17 +61,12 @@ type AmountChanger struct {
 	Remark     string
 }
 
-func (a *AmountChanger) Do() (Result, error) {
-	log.Printf("amount do. id = %v, amount = %v", a.OrderID, a.Amount)
-	return Success, nil
-}
-
-func (a *AmountChanger) DoNext() error {
+func (amount *AmountChanger) DoNext() error {
 	log.Printf("amount do next")
 	return nil
 }
 
-func (a *AmountChanger) Undo() error {
+func (amount *AmountChanger) Undo() error {
 	log.Printf("amount undo")
 	return nil
 }
@@ -36,9 +79,8 @@ type OrderCreator struct {
 }
 
 func (order *OrderCreator) Do() (Result, error) {
-	log.Printf("order do. id = %v, amount = %v", order.OrderID, order.Amount)
+	log.Printf("order do. ID = %v, amount = %v", order.OrderID, order.Amount)
 	return Success, nil
-	// return false, fmt.Errorf("xxx")
 }
 
 func TestGtm(t *testing.T) {
@@ -52,5 +94,5 @@ func TestGtm(t *testing.T) {
 		t.Errorf("gtm execute failed: %v", err)
 	}
 
-	t.Errorf("gtm result = %v", ok)
+	t.Logf("gtm result = %v", ok)
 }
