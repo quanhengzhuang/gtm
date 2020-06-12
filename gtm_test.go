@@ -13,9 +13,9 @@ type AmountChanger struct {
 	Remark     string
 }
 
-func (a *AmountChanger) Do() (bool, error) {
+func (a *AmountChanger) Do() (Result, error) {
 	log.Printf("amount do. id = %v, amount = %v", a.OrderID, a.Amount)
-	return true, nil
+	return Success, nil
 }
 
 func (a *AmountChanger) DoNext() error {
@@ -35,9 +35,9 @@ type OrderCreator struct {
 	Amount    int
 }
 
-func (o *OrderCreator) Do() (bool, error) {
-	log.Printf("order do. id = %v, amount = %v", o.OrderID, o.Amount)
-	return false, nil
+func (order *OrderCreator) Do() (Result, error) {
+	log.Printf("order do. id = %v, amount = %v", order.OrderID, order.Amount)
+	return Success, nil
 	// return false, fmt.Errorf("xxx")
 }
 
