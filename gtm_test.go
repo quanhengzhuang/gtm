@@ -46,6 +46,10 @@ func (s *EmptyStorage) GetUncertainTransactions(count int) ([]*GTM, error) {
 	return nil, nil
 }
 
+func (s *EmptyStorage) GetPartnerResult(id int, phase string, offset int) (Result, error) {
+	return "", nil
+}
+
 func init() {
 	SetStorage(&EmptyStorage{})
 }

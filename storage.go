@@ -16,6 +16,9 @@ type Storage interface {
 	// Performance first, not necessarily reliable.
 	SavePartnerResult(id int, phase string, offset int, result Result) error
 
+	// Return partner's result
+	GetPartnerResult(id int, phase string, offset int) (Result, error)
+
 	// Return transactions to be retried.
 	GetUncertainTransactions(count int) ([]*GTM, error)
 }
