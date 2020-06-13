@@ -11,9 +11,9 @@ type GTM struct {
 	ID   int
 	Name string
 
-	Times    int
-	NextTime time.Time
-	Timeout  time.Duration
+	Times     int
+	RetryTime time.Time
+	Timeout   time.Duration
 
 	NormalPartners   []NormalPartner
 	UncertainPartner UncertainPartner
@@ -45,7 +45,6 @@ var (
 
 func New() *GTM {
 	return &GTM{
-		ID:      defaultStorage.GenerateID(),
 		storage: defaultStorage,
 		timer:   defaultTimer,
 	}
@@ -69,6 +68,10 @@ func SetStorage(storage Storage) {
 	defaultStorage = storage
 }
 
+func GetTimeoutTransactions(count int) (transactions []*GTM, err error) {
+	return defaultStorage.GetTimeoutTransactions(count)
+}
+
 func (g *GTM) AddPartners(normal []NormalPartner, uncertain UncertainPartner, certain []CertainPartner) *GTM {
 	g.NormalPartners = normal
 	g.UncertainPartner = uncertain
@@ -89,7 +92,8 @@ func (g *GTM) ExecuteBackground() (err error) {
 		return fmt.Errorf("storage is nil")
 	}
 
-	if err := g.storage.SaveTransaction(g); err != nil {
+	g.RetryTime = g.timer.CalcRetryTime(0, g.Timeout)
+	if _, err := g.storage.SaveTransaction(g); err != nil {
 		return fmt.Errorf("save transaction failed: %v", err)
 	}
 
@@ -98,16 +102,13 @@ func (g *GTM) ExecuteBackground() (err error) {
 
 // ExecuteContinue use to complete the transaction.
 func (g *GTM) ExecuteContinue() (result Result, err error) {
-	if g.storage == nil {
-		return Uncertain, fmt.Errorf("storage is nil")
-	}
+	// todo write once
+	g.storage = defaultStorage
+	g.timer = defaultTimer
 
-	g.Times++
-	g.NextTime = g.timer.CalcNextTime(g.Times, g.Timeout)
-
-	// todo update the times and nextTime only
-	if err := g.storage.SaveTransaction(g); err != nil {
-		return Uncertain, fmt.Errorf("save transaction failed: %v", err)
+	retryTime := g.timer.CalcRetryTime(g.Times+1, g.Timeout)
+	if err := g.storage.SetTransactionRetryTime(g.ID, g.Times+1, retryTime); err != nil {
+		return Uncertain, fmt.Errorf("set transaction retry time err: %v", err)
 	}
 
 	return g.execute()
@@ -119,8 +120,9 @@ func (g *GTM) Execute() (result Result, err error) {
 		return Fail, fmt.Errorf("storage is nil")
 	}
 
-	g.NextTime = g.timer.CalcNextTime(0, g.Timeout)
-	if err := g.storage.SaveTransaction(g); err != nil {
+	g.Times = 1
+	g.RetryTime = g.timer.CalcRetryTime(0, g.Timeout)
+	if g.ID, err = g.storage.SaveTransaction(g); err != nil {
 		return Fail, fmt.Errorf("save transaction failed: %v", err)
 	}
 
@@ -215,9 +217,9 @@ func (g *GTM) doUncertain() (result Result, undoOffset int, err error) {
 	case Success:
 		return Success, 0, nil
 	case Fail:
-		return Fail, len(g.NormalPartners) - 1, fmt.Errorf("do's failed: %v", err)
+		return Fail, len(g.NormalPartners) - 1, fmt.Errorf("partner do failed: %v", err)
 	case Uncertain:
-		return Uncertain, 0, fmt.Errorf("uncertain partner do err: %v", err)
+		return Uncertain, 0, fmt.Errorf("partner return err: %v, %v, %v", phase, result, err)
 	default:
 		panic("unexpect result value: " + result)
 	}

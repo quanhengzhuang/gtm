@@ -1,12 +1,14 @@
 package gtm
 
-type Storage interface {
-	// Return a unique transaction ID.
-	GenerateID() int
+import (
+	"time"
+)
 
+type Storage interface {
 	// Save the transaction data.
 	// Must be reliable.
-	SaveTransaction(g *GTM) error
+	// Return a unique transaction ID.
+	SaveTransaction(g *GTM) (id int, err error)
 
 	// Save the execution result of the transaction.
 	// Must be reliable.
@@ -19,6 +21,9 @@ type Storage interface {
 	// Return partner's result
 	GetPartnerResult(id int, phase string, offset int) (Result, error)
 
+	// Set transaction's retryTime.
+	SetTransactionRetryTime(id int, times int, retryTime time.Time) error
+
 	// Return transactions to be retried.
-	GetUncertainTransactions(count int) ([]*GTM, error)
+	GetTimeoutTransactions(count int) ([]*GTM, error)
 }
