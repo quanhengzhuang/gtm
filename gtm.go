@@ -13,6 +13,7 @@ type GTM struct {
 
 	Times    int
 	NextTime time.Time
+	Timeout  time.Duration
 
 	NormalPartners   []NormalPartner
 	UncertainPartner UncertainPartner
@@ -20,6 +21,7 @@ type GTM struct {
 	AsyncPartners    []CertainPartner
 
 	storage Storage
+	timer   Timer
 }
 
 type Result string
@@ -37,18 +39,25 @@ const (
 
 var (
 	defaultStorage Storage
-	defaultTimer   Timer
+	defaultTimer   Timer = &DoubleTimer{}
+	defaultTimeout       = 60 * time.Second
 )
 
 func New() *GTM {
 	return &GTM{
 		ID:      defaultStorage.GenerateID(),
 		storage: defaultStorage,
+		timer:   defaultTimer,
 	}
 }
 
 func (g *GTM) SetName(name string) *GTM {
 	g.Name = name
+	return g
+}
+
+func (g *GTM) SetTimeout(timeout time.Duration) *GTM {
+	g.Timeout = timeout
 	return g
 }
 
@@ -94,6 +103,9 @@ func (g *GTM) ExecuteContinue() (result Result, err error) {
 	}
 
 	g.Times++
+	g.NextTime = g.timer.CalcNextTime(g.Times, g.Timeout)
+
+	// todo update the times and nextTime only
 	if err := g.storage.SaveTransaction(g); err != nil {
 		return Uncertain, fmt.Errorf("save transaction failed: %v", err)
 	}
@@ -107,6 +119,7 @@ func (g *GTM) Execute() (result Result, err error) {
 		return Fail, fmt.Errorf("storage is nil")
 	}
 
+	g.NextTime = g.timer.CalcNextTime(0, g.Timeout)
 	if err := g.storage.SaveTransaction(g); err != nil {
 		return Fail, fmt.Errorf("save transaction failed: %v", err)
 	}
@@ -134,10 +147,8 @@ func (g *GTM) execute() (result Result, err error) {
 
 		_ = g.storage.SaveTransactionResult(g.ID, Fail)
 		return Fail, g.undo(undoOffset)
-	case Uncertain:
-		return Uncertain, fmt.Errorf("do err: %v", err)
 	default:
-		panic("unexpect Execute()'s result: " + result)
+		return Uncertain, fmt.Errorf("do err: %v", err)
 	}
 }
 
@@ -153,15 +164,24 @@ func (g *GTM) do() (result Result, undoOffset int, err error) {
 }
 
 func (g *GTM) doNormal() (result Result, undoOffset int, err error) {
+	phase := "do-normal"
+
 	for current, partner := range g.NormalPartners {
-		result, err := partner.Do()
-		_ = g.storage.SavePartnerResult(g.ID, "normal-do", current, result)
+		hasResult, result := g.hasPartnerResult(phase, current)
+		if !hasResult {
+			result, err = partner.Do()
+			_ = g.storage.SavePartnerResult(g.ID, phase, current, result)
+		}
 
 		switch result {
+		case Success:
+			// continue
 		case Fail:
 			return Fail, current - 1, fmt.Errorf("do's failed: %v", err)
 		case Uncertain:
 			return Fail, current, fmt.Errorf("do's uncertain: %v", err)
+		default:
+			panic("unexpect result value: " + result)
 		}
 	}
 
@@ -169,39 +189,74 @@ func (g *GTM) doNormal() (result Result, undoOffset int, err error) {
 }
 
 func (g *GTM) doUncertain() (result Result, undoOffset int, err error) {
-	if g.UncertainPartner != nil {
-		result, err := g.UncertainPartner.Do()
+	if g.UncertainPartner == nil {
+		return Success, 0, nil
+	}
 
-		switch result {
-		case Success:
-			_ = g.storage.SavePartnerResult(g.ID, "uncertain-do", 0, result)
-		case Fail:
-			_ = g.storage.SavePartnerResult(g.ID, "uncertain-do", 0, result)
-			return Fail, len(g.NormalPartners) - 1, fmt.Errorf("do's failed: %v", err)
-		case Uncertain:
-			return Uncertain, 0, fmt.Errorf("uncertain partner do err: %v", err)
+	phase := "uncertain-do"
+
+	hasResult, result := g.hasPartnerResult(phase, 0)
+	if !hasResult {
+		result, err = g.UncertainPartner.Do()
+		if result == Success || result == Fail {
+			_ = g.storage.SavePartnerResult(g.ID, phase, 0, result)
 		}
 	}
 
-	return Success, 0, nil
+	switch result {
+	case Success:
+		return Success, 0, nil
+	case Fail:
+		return Fail, len(g.NormalPartners) - 1, fmt.Errorf("do's failed: %v", err)
+	case Uncertain:
+		return Uncertain, 0, fmt.Errorf("uncertain partner do err: %v", err)
+	default:
+		panic("unexpect result value: " + result)
+	}
 }
 
 // doNext is used to supplement do.
 // Equivalent to the Commit phase in 2PC.
 // Failure is not allowed at this phase and will be retried.
 func (g *GTM) doNext() error {
-	for current, v := range g.NormalPartners {
-		if err := v.DoNext(); err != nil {
-			return fmt.Errorf("partner's DoNext() failed: %v", err)
-		}
-		_ = g.storage.SavePartnerResult(g.ID, "normal-doNext", current, Success)
+	if err := g.doNextNormal(); err != nil {
+		return fmt.Errorf("partner's DoNext() failed: %v", err)
 	}
 
-	for _, v := range g.CertainPartners {
-		if err := v.DoNext(); err != nil {
-			return fmt.Errorf("partner's DoNext() failed: %v", err)
+	if err := g.doNextCertain(); err != nil {
+		return fmt.Errorf("partner's DoNext() failed: %v", err)
+	}
+
+	return nil
+}
+
+func (g *GTM) doNextNormal() (err error) {
+	phase := "doNext-normal"
+
+	for current, v := range g.NormalPartners {
+		hasResult, _ := g.hasPartnerResult(phase, current)
+		if !hasResult {
+			if err = v.DoNext(); err != nil {
+				return fmt.Errorf("partner's DoNext() failed: %v", err)
+			}
+			_ = g.storage.SavePartnerResult(g.ID, phase, current, Success)
 		}
-		_ = g.storage.SavePartnerResult(g.ID, "certain-doNext", 0, Success)
+	}
+
+	return nil
+}
+
+func (g *GTM) doNextCertain() error {
+	phase := "doNext-certain"
+
+	for current, v := range g.CertainPartners {
+		hasResult, _ := g.hasPartnerResult(phase, current)
+		if !hasResult {
+			if err := v.DoNext(); err != nil {
+				return fmt.Errorf("partner's DoNext() failed: %v", err)
+			}
+			_ = g.storage.SavePartnerResult(g.ID, "certain-doNext", current, Success)
+		}
 	}
 
 	return nil
@@ -211,12 +266,31 @@ func (g *GTM) doNext() error {
 // Equivalent to the Rollback phase in 2PC.
 // Failure is not allowed at this phase and will be retried.
 func (g *GTM) undo(undoOffset int) error {
+	return g.undoNormal(undoOffset)
+}
+
+func (g *GTM) undoNormal(undoOffset int) error {
+	phase := "undo-normal"
+
 	for i := undoOffset; i >= 0; i-- {
-		if err := g.NormalPartners[i].Undo(); err != nil {
-			return fmt.Errorf("partner's Undo() failed: %v", err)
+		hasResult, _ := g.hasPartnerResult(phase, i)
+		if !hasResult {
+			if err := g.NormalPartners[i].Undo(); err != nil {
+				return fmt.Errorf("partner's Undo() failed: %v", err)
+			}
+			_ = g.storage.SavePartnerResult(g.ID, "undo", i, Success)
 		}
-		_ = g.storage.SavePartnerResult(g.ID, "undo", i, Success)
 	}
 
 	return nil
+}
+
+func (g *GTM) hasPartnerResult(phase string, offset int) (has bool, result Result) {
+	if g.Times == 0 {
+		return false, ""
+	}
+
+	// todo storage get partner result
+
+	return true, Success
 }
