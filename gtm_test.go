@@ -23,20 +23,22 @@ func (s *EmptyStorage) SaveTransaction(g *GTM) (err error) {
 	gob.Register(&OrderCreator{})
 
 	err = gob.NewEncoder(&buffer).Encode(g)
-	log.Printf("[storage] save transaction encode. err:%v, value:%+v", err, buffer)
+	log.Printf("[storage] transaction encode. err:%v, value:%+v", err, buffer)
 
 	var g2 GTM
 	err = gob.NewDecoder(&buffer).Decode(&g2)
-	log.Printf("[storage] save transaction decode. err:%v, value:%+v, %+v", err, g2, g2.NormalPartners[0])
+	log.Printf("[storage] transaction decode. err:%v, value:%+v, %+v", err, g2, g2.NormalPartners[0])
 
 	return nil
 }
 
 func (s *EmptyStorage) SaveTransactionResult(id int, result Result) error {
+	log.Printf("[storage] save transaction result. id:%v, result:%v", id, result)
 	return nil
 }
 
-func (s *EmptyStorage) SavePartnerResult(id int, offset int, result Result) error {
+func (s *EmptyStorage) SavePartnerResult(id int, phase string, offset int, result Result) error {
+	log.Printf("[storage] save partner result. id:%v, phase:%v, offset:%v, result:%v", id, phase, offset, result)
 	return nil
 }
 
@@ -48,17 +50,17 @@ func init() {
 	SetStorage(&EmptyStorage{})
 }
 
-func (a *AmountChanger) Do() (Result, error) {
-	log.Printf("amount do. ID = %v, amount = %v", a.OrderID, a.Amount)
-	return Success, nil
-}
-
 type AmountChanger struct {
 	OrderID    int
 	UserID     int
 	Amount     int
 	ChangeType int
 	Remark     string
+}
+
+func (amount *AmountChanger) Do() (Result, error) {
+	log.Printf("amount do. ID = %v, amount = %v", amount.OrderID, amount.Amount)
+	return Success, nil
 }
 
 func (amount *AmountChanger) DoNext() error {

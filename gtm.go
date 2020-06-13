@@ -24,6 +24,9 @@ const (
 	Success   Result = "success"
 	Fail      Result = "fail"
 	Uncertain Result = "uncertain"
+
+	DoNextRetrying Result = "doNextRetrying"
+	UndoRetrying   Result = "undoRetrying"
 )
 
 var (
@@ -107,10 +110,23 @@ func (g *GTM) Execute() (result Result, err error) {
 
 func (g *GTM) execute() (result Result, err error) {
 	result, undoOffset, err := g.do()
+
 	switch result {
 	case Success:
-		return Success, g.doNext()
+		if err := g.doNext(); err != nil {
+			_ = g.storage.SaveTransactionResult(g.ID, DoNextRetrying)
+			return DoNextRetrying, fmt.Errorf("doNext() failed: %v", err)
+		}
+
+		_ = g.storage.SaveTransactionResult(g.ID, Success)
+		return Success, nil
 	case Fail:
+		if err := g.undo(undoOffset); err != nil {
+			_ = g.storage.SaveTransactionResult(g.ID, UndoRetrying)
+			return UndoRetrying, fmt.Errorf("undo() failed: %v", err)
+		}
+
+		_ = g.storage.SaveTransactionResult(g.ID, Fail)
 		return Fail, g.undo(undoOffset)
 	case Uncertain:
 		return Uncertain, fmt.Errorf("do err: %v", err)
@@ -119,59 +135,81 @@ func (g *GTM) execute() (result Result, err error) {
 	}
 }
 
+// do is used to execute uncertain operations.
+// Equivalent to the Prepare phase in 2PC.
 func (g *GTM) do() (result Result, undoOffset int, err error) {
+	result, undoOffset, err = g.doNormal()
+	if result != Success {
+		return result, undoOffset, fmt.Errorf("doNormal failed: %v", err)
+	}
+
+	return g.doUncertain()
+}
+
+func (g *GTM) doNormal() (result Result, undoOffset int, err error) {
 	for current, partner := range g.NormalPartners {
 		result, err := partner.Do()
+		_ = g.storage.SavePartnerResult(g.ID, "normal-do", current, result)
+
 		switch result {
-		case Success:
-			// success
 		case Fail:
 			return Fail, current - 1, fmt.Errorf("do's failed: %v", err)
 		case Uncertain:
 			return Fail, current, fmt.Errorf("do's uncertain: %v", err)
-		default:
-			panic("unexpect Do()'s result: " + result)
-		}
-	}
-
-	if g.UncertainPartner != nil {
-		result, err := g.UncertainPartner.Do()
-		switch result {
-		case Success:
-			// success
-		case Fail:
-			return Fail, len(g.NormalPartners) - 1, fmt.Errorf("do's failed: %v", err)
-		case Uncertain:
-			return Uncertain, 0, fmt.Errorf("uncertain partner do err: %v", err)
-		default:
-			panic("unexpect Do()'s result: " + result)
 		}
 	}
 
 	return Success, 0, nil
 }
 
-func (g *GTM) undo(failOffset int) error {
-	for i := 0; i <= failOffset; i++ {
-		if err := g.NormalPartners[i].Undo(); err != nil {
-			return fmt.Errorf("partner's Undo() failed: %v", err)
+func (g *GTM) doUncertain() (result Result, undoOffset int, err error) {
+	if g.UncertainPartner != nil {
+		result, err := g.UncertainPartner.Do()
+
+		switch result {
+		case Success:
+			_ = g.storage.SavePartnerResult(g.ID, "uncertain-do", 0, result)
+		case Fail:
+			_ = g.storage.SavePartnerResult(g.ID, "uncertain-do", 0, result)
+			return Fail, len(g.NormalPartners) - 1, fmt.Errorf("do's failed: %v", err)
+		case Uncertain:
+			return Uncertain, 0, fmt.Errorf("uncertain partner do err: %v", err)
 		}
 	}
 
-	return nil
+	return Success, 0, nil
 }
 
+// doNext is used to supplement do.
+// Equivalent to the Commit phase in 2PC.
+// Failure is not allowed at this phase and will be retried.
 func (g *GTM) doNext() error {
 	for _, v := range g.NormalPartners {
 		if err := v.DoNext(); err != nil {
 			return fmt.Errorf("partner's DoNext() failed: %v", err)
 		}
+		_ = g.storage.SavePartnerResult(g.ID, "normal-doNext", 0, Success)
 	}
 
 	for _, v := range g.CertainPartners {
 		if err := v.DoNext(); err != nil {
 			return fmt.Errorf("partner's DoNext() failed: %v", err)
 		}
+		_ = g.storage.SavePartnerResult(g.ID, "certain-doNext", 0, Success)
+	}
+
+	return nil
+}
+
+// undo will rollback all successful do.
+// Equivalent to the Rollback phase in 2PC.
+// Failure is not allowed at this phase and will be retried.
+func (g *GTM) undo(undoOffset int) error {
+	for i := 0; i <= undoOffset; i++ {
+		if err := g.NormalPartners[i].Undo(); err != nil {
+			return fmt.Errorf("partner's Undo() failed: %v", err)
+		}
+		_ = g.storage.SavePartnerResult(g.ID, "undo", 0, Success)
 	}
 
 	return nil
