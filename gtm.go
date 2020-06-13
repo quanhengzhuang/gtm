@@ -2,6 +2,7 @@ package gtm
 
 import (
 	"fmt"
+	"time"
 )
 
 // GTM is the definition of global transaction manager.
@@ -9,6 +10,9 @@ import (
 type GTM struct {
 	ID   int
 	Name string
+
+	Times    int
+	NextTime time.Time
 
 	NormalPartners   []NormalPartner
 	UncertainPartner UncertainPartner
@@ -21,48 +25,22 @@ type GTM struct {
 type Result string
 
 const (
+	// Use for Partner or Transaction.
 	Success   Result = "success"
 	Fail      Result = "fail"
 	Uncertain Result = "uncertain"
 
-	DoNextRetrying Result = "doNextRetrying"
-	UndoRetrying   Result = "undoRetrying"
+	// Use for Transaction only.
+	doNextRetrying Result = "doNextRetrying"
+	undoRetrying   Result = "undoRetrying"
 )
 
 var (
 	defaultStorage Storage
+	defaultTimer   Timer
 )
 
-// NormalPartner is a normal participant.
-// This participant needs three methods to implement 2PC.
-// In business, DoNext is often omitted and can directly return success.
-// If Do returns a failure, Undo will not be executed, because gtm thinks there is no impact.
-// If Do returns uncertainty, Undo will be executed.
-type NormalPartner interface {
-	Do() (Result, error)
-	DoNext() error
-	Undo() error
-}
-
-// UncertainPartner is an uncertain (unstable) participant.
-// The execution result only accepts success and failure, and the result will be retried if uncertain.
-// Only one participant of this type is allowed in each gtm transaction.
-type UncertainPartner interface {
-	Do() (Result, error)
-}
-
-// CertainPartner is a certain (stable) participant.
-// The execution result can only be success, other results will be retried.
-// This type of participant is placed at the end of the gtm transaction, allowing multiple.
-type CertainPartner interface {
-	DoNext() error
-}
-
 func New() *GTM {
-	if defaultStorage == nil {
-		panic("default storage is nil")
-	}
-
 	return &GTM{
 		ID:      defaultStorage.GenerateID(),
 		storage: defaultStorage,
@@ -96,11 +74,39 @@ func (g *GTM) AddAsyncPartners(certain []CertainPartner) *GTM {
 	return g
 }
 
-func (g *GTM) ExecuteBackground() {
+// ExecuteBackground will return immediately.
+func (g *GTM) ExecuteBackground() (err error) {
+	if g.storage == nil {
+		return fmt.Errorf("storage is nil")
+	}
 
+	if err := g.storage.SaveTransaction(g); err != nil {
+		return fmt.Errorf("save transaction failed: %v", err)
+	}
+
+	return nil
 }
 
+// ExecuteContinue use to complete the transaction.
+func (g *GTM) ExecuteContinue() (result Result, err error) {
+	if g.storage == nil {
+		return Uncertain, fmt.Errorf("storage is nil")
+	}
+
+	g.Times++
+	if err := g.storage.SaveTransaction(g); err != nil {
+		return Uncertain, fmt.Errorf("save transaction failed: %v", err)
+	}
+
+	return g.execute()
+}
+
+// Execute the transaction and return the final result.
 func (g *GTM) Execute() (result Result, err error) {
+	if g.storage == nil {
+		return Fail, fmt.Errorf("storage is nil")
+	}
+
 	if err := g.storage.SaveTransaction(g); err != nil {
 		return Fail, fmt.Errorf("save transaction failed: %v", err)
 	}
@@ -114,16 +120,16 @@ func (g *GTM) execute() (result Result, err error) {
 	switch result {
 	case Success:
 		if err := g.doNext(); err != nil {
-			_ = g.storage.SaveTransactionResult(g.ID, DoNextRetrying)
-			return DoNextRetrying, fmt.Errorf("doNext() failed: %v", err)
+			_ = g.storage.SaveTransactionResult(g.ID, doNextRetrying)
+			return Uncertain, fmt.Errorf("doNext() failed: %v", err)
 		}
 
 		_ = g.storage.SaveTransactionResult(g.ID, Success)
 		return Success, nil
 	case Fail:
 		if err := g.undo(undoOffset); err != nil {
-			_ = g.storage.SaveTransactionResult(g.ID, UndoRetrying)
-			return UndoRetrying, fmt.Errorf("undo() failed: %v", err)
+			_ = g.storage.SaveTransactionResult(g.ID, undoRetrying)
+			return Uncertain, fmt.Errorf("undo() failed: %v", err)
 		}
 
 		_ = g.storage.SaveTransactionResult(g.ID, Fail)
@@ -184,11 +190,11 @@ func (g *GTM) doUncertain() (result Result, undoOffset int, err error) {
 // Equivalent to the Commit phase in 2PC.
 // Failure is not allowed at this phase and will be retried.
 func (g *GTM) doNext() error {
-	for _, v := range g.NormalPartners {
+	for current, v := range g.NormalPartners {
 		if err := v.DoNext(); err != nil {
 			return fmt.Errorf("partner's DoNext() failed: %v", err)
 		}
-		_ = g.storage.SavePartnerResult(g.ID, "normal-doNext", 0, Success)
+		_ = g.storage.SavePartnerResult(g.ID, "normal-doNext", current, Success)
 	}
 
 	for _, v := range g.CertainPartners {
@@ -205,11 +211,11 @@ func (g *GTM) doNext() error {
 // Equivalent to the Rollback phase in 2PC.
 // Failure is not allowed at this phase and will be retried.
 func (g *GTM) undo(undoOffset int) error {
-	for i := 0; i <= undoOffset; i++ {
+	for i := undoOffset; i >= 0; i-- {
 		if err := g.NormalPartners[i].Undo(); err != nil {
 			return fmt.Errorf("partner's Undo() failed: %v", err)
 		}
-		_ = g.storage.SavePartnerResult(g.ID, "undo", 0, Success)
+		_ = g.storage.SavePartnerResult(g.ID, "undo", i, Success)
 	}
 
 	return nil
