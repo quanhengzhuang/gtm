@@ -92,7 +92,7 @@ func (s *LevelStorage) SavePartnerResult(tx *gtm.Transaction, phase string, offs
 	return nil
 }
 
-func (s *LevelStorage) SetTransactionRetryTime(g *gtm.Transaction, times int, newRetryTime time.Time) error {
+func (s *LevelStorage) UpdateTransactionRetryTime(g *gtm.Transaction, times int, newRetryTime time.Time) error {
 	// add new retry key
 	key := s.getRetryKey(newRetryTime, g.ID)
 	value := []byte(fmt.Sprintf("%v", g.ID))

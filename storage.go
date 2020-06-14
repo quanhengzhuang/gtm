@@ -21,8 +21,8 @@ type Storage interface {
 	// Return partner's result
 	GetPartnerResult(tx *Transaction, phase string, offset int) (Result, error)
 
-	// Set transaction's retryTime.
-	SetTransactionRetryTime(tx *Transaction, times int, newRetryTime time.Time) error
+	// UpdateTransactionRetryTime use to change the transaction's retryTime.
+	UpdateTransactionRetryTime(tx *Transaction, times int, newRetryTime time.Time) error
 
 	// Return transactions to be retried.
 	GetTimeoutTransactions(count int) ([]*Transaction, error)

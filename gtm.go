@@ -123,7 +123,7 @@ func (tx *Transaction) ExecuteRetry() (result Result, err error) {
 	tx.timer = defaultTimer
 
 	retryTime := tx.timer.CalcRetryTime(tx.Times+1, tx.Timeout)
-	if err := tx.storage.SetTransactionRetryTime(tx, tx.Times+1, retryTime); err != nil {
+	if err := tx.storage.UpdateTransactionRetryTime(tx, tx.Times+1, retryTime); err != nil {
 		return Uncertain, fmt.Errorf("set transaction retry time err: %v", err)
 	}
 
