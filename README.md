@@ -38,3 +38,8 @@ if transactions, results, errs, err := gtm.RetryTimeoutTransactions(count); err 
 	}
 }
 ```
+
+## Custom storage
+You should implement the gtm.Storage interface.
+
+A storage example based on LevelDB is provided in `storage_test.go`, but this is only an example and cannot be used for production. It is recommended to use MySQL + Redis to achieve transaction storage in production.
