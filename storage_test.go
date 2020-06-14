@@ -26,6 +26,10 @@ func NewLevelStorage() *LevelStorage {
 	return &LevelStorage{db}
 }
 
+func (s *LevelStorage) getRetryKey(retryTime time.Time, id string) []byte {
+	return []byte(fmt.Sprintf("gtm-retry-%v-%v", retryTime.Unix(), id))
+}
+
 func (s *LevelStorage) Register(value interface{}) {
 	gob.Register(value)
 }
@@ -54,15 +58,15 @@ func (s *LevelStorage) SaveTransaction(g *gtm.GTM) (id string, err error) {
 	return g.ID, nil
 }
 
-func (s *LevelStorage) SaveTransactionResult(id string, result gtm.Result) error {
-	key := fmt.Sprintf("gtm-result-%v", id)
+func (s *LevelStorage) SaveTransactionResult(tx *gtm.GTM, result gtm.Result) error {
+	key := fmt.Sprintf("gtm-result-%v", tx.ID)
 	if err := s.db.Put([]byte(key), []byte(result), nil); err != nil {
 		return fmt.Errorf("db put failed: %v", err)
 	}
 
 	// delete retry
 	if result == gtm.Success || result == gtm.Fail {
-		retry := fmt.Sprintf("gtm-retry-%v", id)
+		retry := fmt.Sprintf("gtm-retry-%v-%v", tx.RetryTime, tx.ID)
 		if err := s.db.Delete([]byte(retry), nil); err != nil {
 			return fmt.Errorf("delete retry err: %v", err)
 		}
@@ -72,10 +76,10 @@ func (s *LevelStorage) SaveTransactionResult(id string, result gtm.Result) error
 	return nil
 }
 
-func (s *LevelStorage) SavePartnerResult(id string, phase string, offset int, result gtm.Result) error {
-	log.Printf("[storage] save partner result. id:%v, phase:%v, offset:%v, result:%v", id, phase, offset, result)
+func (s *LevelStorage) SavePartnerResult(tx *gtm.GTM, phase string, offset int, result gtm.Result) error {
+	log.Printf("[storage] save partner result. id:%v, phase:%v, offset:%v, result:%v", tx.ID, phase, offset, result)
 
-	key := fmt.Sprintf("gtm-partner-%v-%v-%v", id, phase, offset)
+	key := fmt.Sprintf("gtm-partner-%v-%v-%v", tx.ID, phase, offset)
 	if err := s.db.Put([]byte(key), []byte(result), nil); err != nil {
 		return fmt.Errorf("db put failed: %v", err)
 	}
@@ -99,10 +103,6 @@ func (s *LevelStorage) SetTransactionRetryTime(g *gtm.GTM, times int, newRetryTi
 	log.Printf("[storage] set retry key. new:%s, old:%s", key, oldKey)
 
 	return nil
-}
-
-func (s *LevelStorage) getRetryKey(retryTime time.Time, id string) []byte {
-	return []byte(fmt.Sprintf("gtm-retry-%v-%v", retryTime.Unix(), id))
 }
 
 func (s *LevelStorage) GetTimeoutTransactions(count int) (transactions []*gtm.GTM, err error) {
@@ -142,8 +142,8 @@ func (s *LevelStorage) GetTimeoutTransactions(count int) (transactions []*gtm.GT
 	return transactions, nil
 }
 
-func (s *LevelStorage) GetPartnerResult(id string, phase string, offset int) (gtm.Result, error) {
-	key := fmt.Sprintf("gtm-partner-%v-%v-%v", id, phase, offset)
+func (s *LevelStorage) GetPartnerResult(tx *gtm.GTM, phase string, offset int) (gtm.Result, error) {
+	key := fmt.Sprintf("gtm-partner-%v-%v-%v", tx.ID, phase, offset)
 	if value, err := s.db.Get([]byte(key), nil); err != nil {
 		return "", fmt.Errorf("db put failed: %v", err)
 	} else {

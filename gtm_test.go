@@ -24,11 +24,13 @@ func TestNew(t *testing.T) {
 
 	switch result, err := tx.Execute(); result {
 	case gtm.Success:
-		t.Logf("tx's result is success")
+		t.Logf("tx's result = success")
 	case gtm.Fail:
-		t.Logf("tx's result is fail. err = %+v", err)
+		t.Logf("tx's result = fail. err = %+v", err)
 	case gtm.Uncertain:
-		t.Errorf("tx's result is uncertain: err = %v", err)
+		t.Logf("tx's result = uncertain: err = %v", err)
+	default:
+		t.Errorf("unexpected result: %v", result)
 	}
 }
 
