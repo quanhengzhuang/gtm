@@ -2,3 +2,4 @@
 *.swo
 .idea/
 .vscode/
+level_db_storage/
