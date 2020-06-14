@@ -1,7 +1,6 @@
 package gtm_test
 
 import (
-	"encoding/gob"
 	"testing"
 
 	"github.com/quanhengzhuang/gtm"
@@ -9,10 +8,10 @@ import (
 
 func init() {
 	storage := NewLevelStorage()
-	gob.RegisterName("*gtm.Payer", &Payer{})
-	gob.RegisterName("*gtm.OrderCreator", &OrderCreator{})
-	// storage.Register(&Payer{})
-	// storage.Register(&OrderCreator{})
+	// gob.RegisterName("*gtm.Payer", &Payer{})
+	// gob.RegisterName("*gtm.OrderCreator", &OrderCreator{})
+	storage.Register(&Payer{})
+	storage.Register(&OrderCreator{})
 
 	gtm.SetStorage(storage)
 }
@@ -35,7 +34,8 @@ func TestNew(t *testing.T) {
 }
 
 func TestRetry(t *testing.T) {
-	if transactions, results, errs, err := gtm.RetryTimeoutTransactions(10); err != nil {
+	count := 10
+	if transactions, results, errs, err := gtm.RetryTimeoutTransactions(count); err != nil {
 		t.Errorf("retry err: %v", err)
 	} else {
 		for k, tx := range transactions {

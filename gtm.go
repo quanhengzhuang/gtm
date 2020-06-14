@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-// GTM is the definition of global transaction manager.
+// Transaction is the definition of GTM transaction.
 // Including multiple NormalPartners, one UncertainPartner, multiple CertainPartners.
-type GTM struct {
+type Transaction struct {
 	ID   string
 	Name string
 
@@ -43,19 +43,19 @@ var (
 	defaultTimeout       = 60 * time.Second
 )
 
-func New() *GTM {
-	return &GTM{
+func New() *Transaction {
+	return &Transaction{
 		storage: defaultStorage,
 		timer:   defaultTimer,
 	}
 }
 
-func (g *GTM) SetName(name string) *GTM {
+func (g *Transaction) SetName(name string) *Transaction {
 	g.Name = name
 	return g
 }
 
-func (g *GTM) SetTimeout(timeout time.Duration) *GTM {
+func (g *Transaction) SetTimeout(timeout time.Duration) *Transaction {
 	g.Timeout = timeout
 	return g
 }
@@ -64,28 +64,28 @@ func SetStorage(storage Storage) {
 	defaultStorage = storage
 }
 
-func (g *GTM) AddNormalPartners(partners ...NormalPartner) *GTM {
+func (g *Transaction) AddNormalPartners(partners ...NormalPartner) *Transaction {
 	g.NormalPartners = append(g.NormalPartners, partners...)
 	return g
 }
 
-func (g *GTM) AddUncertainPartner(partner UncertainPartner) *GTM {
+func (g *Transaction) AddUncertainPartner(partner UncertainPartner) *Transaction {
 	g.UncertainPartner = partner
 	return g
 }
 
-func (g *GTM) AddCertainPartners(partners ...CertainPartner) *GTM {
+func (g *Transaction) AddCertainPartners(partners ...CertainPartner) *Transaction {
 	g.CertainPartners = append(g.CertainPartners, partners...)
 	return g
 }
 
-func (g *GTM) AddAsyncPartners(partners ...CertainPartner) *GTM {
+func (g *Transaction) AddAsyncPartners(partners ...CertainPartner) *Transaction {
 	g.AsyncPartners = append(g.AsyncPartners, partners...)
 	return g
 }
 
 // ExecuteBackground will return immediately.
-func (g *GTM) ExecuteBackground() (err error) {
+func (g *Transaction) ExecuteBackground() (err error) {
 	if g.storage == nil {
 		return fmt.Errorf("storage is nil")
 	}
@@ -101,7 +101,7 @@ func (g *GTM) ExecuteBackground() (err error) {
 // RetryTimeoutTransactions retry to complete timeout transactions.
 // Count is used to set the total number of transactions per retry.
 // Returns the total number of actual retries, and retry errors.
-func RetryTimeoutTransactions(count int) (transactions []*GTM, results []Result, errs []error, err error) {
+func RetryTimeoutTransactions(count int) (transactions []*Transaction, results []Result, errs []error, err error) {
 	transactions, err = defaultStorage.GetTimeoutTransactions(count)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("get timeout transactions err: %v", err)
@@ -117,7 +117,7 @@ func RetryTimeoutTransactions(count int) (transactions []*GTM, results []Result,
 }
 
 // ExecuteRetry use to complete the transaction.
-func (g *GTM) ExecuteRetry() (result Result, err error) {
+func (g *Transaction) ExecuteRetry() (result Result, err error) {
 	// todo write once
 	g.storage = defaultStorage
 	g.timer = defaultTimer
@@ -131,7 +131,7 @@ func (g *GTM) ExecuteRetry() (result Result, err error) {
 }
 
 // Execute the transaction and return the final result.
-func (g *GTM) Execute() (result Result, err error) {
+func (g *Transaction) Execute() (result Result, err error) {
 	if g.storage == nil {
 		return Fail, fmt.Errorf("storage is nil")
 	}
@@ -145,7 +145,7 @@ func (g *GTM) Execute() (result Result, err error) {
 	return g.execute()
 }
 
-func (g *GTM) execute() (result Result, err error) {
+func (g *Transaction) execute() (result Result, err error) {
 	result, undoOffset, err := g.do()
 
 	switch result {
@@ -178,7 +178,7 @@ func (g *GTM) execute() (result Result, err error) {
 
 // do is used to execute uncertain operations.
 // Equivalent to the Prepare phase in 2PC.
-func (g *GTM) do() (result Result, undoOffset int, err error) {
+func (g *Transaction) do() (result Result, undoOffset int, err error) {
 	result, undoOffset, err = g.doNormal()
 	if result != Success {
 		return result, undoOffset, fmt.Errorf("doNormal failed: %v", err)
@@ -187,7 +187,7 @@ func (g *GTM) do() (result Result, undoOffset int, err error) {
 	return g.doUncertain()
 }
 
-func (g *GTM) doNormal() (result Result, undoOffset int, err error) {
+func (g *Transaction) doNormal() (result Result, undoOffset int, err error) {
 	phase := "do-normal"
 
 	for i, partner := range g.NormalPartners {
@@ -213,7 +213,7 @@ func (g *GTM) doNormal() (result Result, undoOffset int, err error) {
 	return Success, 0, nil
 }
 
-func (g *GTM) doUncertain() (result Result, undoOffset int, err error) {
+func (g *Transaction) doUncertain() (result Result, undoOffset int, err error) {
 	if g.UncertainPartner == nil {
 		return Success, 0, nil
 	}
@@ -244,7 +244,7 @@ func (g *GTM) doUncertain() (result Result, undoOffset int, err error) {
 // doNext is used to supplement do.
 // Equivalent to the Commit phase in 2PC.
 // Failure is not allowed at this phase and will be retried.
-func (g *GTM) doNext() error {
+func (g *Transaction) doNext() error {
 	if err := g.doNextNormal(); err != nil {
 		return fmt.Errorf("normalPartner DoNext() failed: %v", err)
 	}
@@ -256,7 +256,7 @@ func (g *GTM) doNext() error {
 	return nil
 }
 
-func (g *GTM) doNextNormal() (err error) {
+func (g *Transaction) doNextNormal() (err error) {
 	phase := "doNext-normal"
 
 	for i, v := range g.NormalPartners {
@@ -274,7 +274,7 @@ func (g *GTM) doNextNormal() (err error) {
 	return nil
 }
 
-func (g *GTM) doNextCertain() error {
+func (g *Transaction) doNextCertain() error {
 	phase := "doNext-certain"
 
 	for i, v := range g.CertainPartners {
@@ -295,11 +295,11 @@ func (g *GTM) doNextCertain() error {
 // undo will rollback all successful do.
 // Equivalent to the Rollback phase in 2PC.
 // Failure is not allowed at this phase and will be retried.
-func (g *GTM) undo(undoOffset int) error {
+func (g *Transaction) undo(undoOffset int) error {
 	return g.undoNormal(undoOffset)
 }
 
-func (g *GTM) undoNormal(undoOffset int) error {
+func (g *Transaction) undoNormal(undoOffset int) error {
 	phase := "undo-normal"
 
 	for i := undoOffset; i >= 0; i-- {
@@ -317,7 +317,7 @@ func (g *GTM) undoNormal(undoOffset int) error {
 	return nil
 }
 
-func (g *GTM) getPartnerResult(phase string, offset int) (result Result) {
+func (g *Transaction) getPartnerResult(phase string, offset int) (result Result) {
 	if g.Times == 0 {
 		return ""
 	}

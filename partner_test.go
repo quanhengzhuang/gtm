@@ -2,10 +2,11 @@ package gtm_test
 
 import (
 	"fmt"
-	"github.com/quanhengzhuang/gtm"
 	"log"
 	"math/rand"
 	"time"
+
+	"github.com/quanhengzhuang/gtm"
 )
 
 var (
