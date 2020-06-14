@@ -68,17 +68,23 @@ func SetStorage(storage Storage) {
 	defaultStorage = storage
 }
 
-func (g *GTM) AddPartners(normal []NormalPartner, uncertain UncertainPartner, certain []CertainPartner) *GTM {
-	g.NormalPartners = normal
-	g.UncertainPartner = uncertain
-	g.CertainPartners = certain
-
+func (g *GTM) AddNormalPartners(partners ...NormalPartner) *GTM {
+	g.NormalPartners = append(g.NormalPartners, partners...)
 	return g
 }
 
-func (g *GTM) AddAsyncPartners(certain []CertainPartner) *GTM {
-	g.AsyncPartners = certain
+func (g *GTM) AddUncertainPartner(partner UncertainPartner) *GTM {
+	g.UncertainPartner = partner
+	return g
+}
 
+func (g *GTM) AddCertainPartners(partners ...CertainPartner) *GTM {
+	g.CertainPartners = append(g.CertainPartners, partners...)
+	return g
+}
+
+func (g *GTM) AddAsyncPartners(partners ...CertainPartner) *GTM {
+	g.AsyncPartners = append(g.AsyncPartners, partners...)
 	return g
 }
 
@@ -99,19 +105,19 @@ func (g *GTM) ExecuteBackground() (err error) {
 // RetryTimeoutTransactions retry to complete timeout transactions.
 // Count is used to set the total number of transactions per retry.
 // Returns the total number of actual retries, and retry errors.
-func RetryTimeoutTransactions(count int) (retryCount int, retryErrs []error, err error) {
-	transactions, err := defaultStorage.GetTimeoutTransactions(count)
+func RetryTimeoutTransactions(count int) (transactions []*GTM, results []Result, errs []error, err error) {
+	transactions, err = defaultStorage.GetTimeoutTransactions(count)
 	if err != nil {
-		return 0, nil, fmt.Errorf("get timeout transactions err: %v", err)
+		return nil, nil, nil, fmt.Errorf("get timeout transactions err: %v", err)
 	}
 
 	for _, tx := range transactions {
-		if _, err := tx.ExecuteRetry(); err != nil {
-			retryErrs = append(retryErrs, err)
-		}
+		result, err := tx.ExecuteRetry()
+		errs = append(errs, err)
+		results = append(results, result)
 	}
 
-	return len(transactions), retryErrs, nil
+	return transactions, results, errs, nil
 }
 
 // ExecuteRetry use to complete the transaction.
