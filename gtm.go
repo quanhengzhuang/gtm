@@ -19,9 +19,6 @@ type Transaction struct {
 	UncertainPartner UncertainPartner
 	CertainPartners  []CertainPartner
 	AsyncPartners    []CertainPartner
-
-	storage Storage
-	timer   Timer
 }
 
 type Result string
@@ -43,11 +40,16 @@ var (
 	defaultTimeout       = 60 * time.Second
 )
 
+// New returns an empty GTM transaction.
 func New() *Transaction {
-	return &Transaction{
-		storage: defaultStorage,
-		timer:   defaultTimer,
-	}
+	return &Transaction{}
+}
+
+// SetStorage is used to set the default storage engine.
+// The setting is effective for all transactions.
+// The initial value of the storage is nil and must be set.
+func SetStorage(s Storage) {
+	defaultStorage = s
 }
 
 func (tx *Transaction) SetName(name string) *Transaction {
@@ -60,8 +62,18 @@ func (tx *Transaction) SetTimeout(timeout time.Duration) *Transaction {
 	return tx
 }
 
-func SetStorage(storage Storage) {
-	defaultStorage = storage
+func (tx *Transaction) storage() Storage {
+	if defaultStorage == nil {
+		panic("gtm: default storage is nil")
+	}
+	return defaultStorage
+}
+
+func (tx *Transaction) timer() Timer {
+	if defaultTimer == nil {
+		panic("gtm: default timer is nil")
+	}
+	return defaultTimer
 }
 
 func (tx *Transaction) AddNormalPartners(partners ...NormalPartner) *Transaction {
@@ -86,12 +98,8 @@ func (tx *Transaction) AddAsyncPartners(partners ...CertainPartner) *Transaction
 
 // ExecuteBackground will return immediately.
 func (tx *Transaction) ExecuteBackground() (err error) {
-	if tx.storage == nil {
-		return fmt.Errorf("storage is nil")
-	}
-
-	tx.RetryTime = tx.timer.CalcRetryTime(0, tx.Timeout)
-	if _, err := tx.storage.SaveTransaction(tx); err != nil {
+	tx.RetryTime = tx.timer().CalcRetryTime(0, tx.Timeout)
+	if _, err := tx.storage().SaveTransaction(tx); err != nil {
 		return fmt.Errorf("save transaction failed: %v", err)
 	}
 
@@ -118,12 +126,8 @@ func RetryTimeoutTransactions(count int) (transactions []*Transaction, results [
 
 // ExecuteRetry use to complete the transaction.
 func (tx *Transaction) ExecuteRetry() (result Result, err error) {
-	// todo write once
-	tx.storage = defaultStorage
-	tx.timer = defaultTimer
-
-	retryTime := tx.timer.CalcRetryTime(tx.Times+1, tx.Timeout)
-	if err := tx.storage.UpdateTransactionRetryTime(tx, tx.Times+1, retryTime); err != nil {
+	retryTime := tx.timer().CalcRetryTime(tx.Times+1, tx.Timeout)
+	if err := tx.storage().UpdateTransactionRetryTime(tx, tx.Times+1, retryTime); err != nil {
 		return Uncertain, fmt.Errorf("set transaction retry time err: %v", err)
 	}
 
@@ -132,13 +136,9 @@ func (tx *Transaction) ExecuteRetry() (result Result, err error) {
 
 // Execute the transaction and return the final result.
 func (tx *Transaction) Execute() (result Result, err error) {
-	if tx.storage == nil {
-		return Fail, fmt.Errorf("storage is nil")
-	}
-
 	tx.Times = 1
-	tx.RetryTime = tx.timer.CalcRetryTime(0, tx.Timeout)
-	if tx.ID, err = tx.storage.SaveTransaction(tx); err != nil {
+	tx.RetryTime = tx.timer().CalcRetryTime(0, tx.Timeout)
+	if tx.ID, err = tx.storage().SaveTransaction(tx); err != nil {
 		return Fail, fmt.Errorf("save transaction failed: %v", err)
 	}
 
@@ -151,22 +151,22 @@ func (tx *Transaction) execute() (result Result, err error) {
 	switch result {
 	case Success:
 		if err := tx.doNext(); err != nil {
-			_ = tx.storage.SaveTransactionResult(tx, doNextRetrying)
+			_ = tx.storage().SaveTransactionResult(tx, doNextRetrying)
 			return Uncertain, fmt.Errorf("doNext() failed: %v", err)
 		}
 
-		if err := tx.storage.SaveTransactionResult(tx, Success); err != nil {
+		if err := tx.storage().SaveTransactionResult(tx, Success); err != nil {
 			return Uncertain, fmt.Errorf("save transaction result failed: %v, %v", Success, err)
 		}
 
 		return Success, nil
 	case Fail:
 		if err := tx.undo(undoOffset); err != nil {
-			_ = tx.storage.SaveTransactionResult(tx, undoRetrying)
+			_ = tx.storage().SaveTransactionResult(tx, undoRetrying)
 			return Uncertain, fmt.Errorf("undo() failed: %v", err)
 		}
 
-		if err := tx.storage.SaveTransactionResult(tx, Fail); err != nil {
+		if err := tx.storage().SaveTransactionResult(tx, Fail); err != nil {
 			return Uncertain, fmt.Errorf("save transaction result failed: %v, %v", Fail, err)
 		}
 
@@ -193,7 +193,7 @@ func (tx *Transaction) doNormal() (result Result, undoOffset int, err error) {
 	for i, partner := range tx.NormalPartners {
 		if result = tx.getPartnerResult(phase, i); result == "" {
 			result, err = partner.Do()
-			if err := tx.storage.SavePartnerResult(tx, phase, i, result); err != nil {
+			if err := tx.storage().SavePartnerResult(tx, phase, i, result); err != nil {
 				return Uncertain, i, fmt.Errorf("save partner result failed: %v, %v, %v, %v", phase, i, result, err)
 			}
 		}
@@ -223,7 +223,7 @@ func (tx *Transaction) doUncertain() (result Result, undoOffset int, err error) 
 	if result = tx.getPartnerResult(phase, 0); result == "" {
 		result, err = tx.UncertainPartner.Do()
 		if result == Success || result == Fail {
-			if err := tx.storage.SavePartnerResult(tx, phase, 0, result); err != nil {
+			if err := tx.storage().SavePartnerResult(tx, phase, 0, result); err != nil {
 				return Uncertain, 0, fmt.Errorf("save partner result failed: %v, %v, %v", phase, result, err)
 			}
 		}
@@ -265,7 +265,7 @@ func (tx *Transaction) doNextNormal() (err error) {
 				return fmt.Errorf("partner return err: %v, %v, %v", phase, i, err)
 			}
 
-			if err := tx.storage.SavePartnerResult(tx, phase, i, Success); err != nil {
+			if err := tx.storage().SavePartnerResult(tx, phase, i, Success); err != nil {
 				return fmt.Errorf("save partner result failed: %v, %v, %v", phase, i, err)
 			}
 		}
@@ -283,7 +283,7 @@ func (tx *Transaction) doNextCertain() error {
 				return fmt.Errorf("partner return err: %v, %v, %v", phase, i, err)
 			}
 
-			if err := tx.storage.SavePartnerResult(tx, phase, i, Success); err != nil {
+			if err := tx.storage().SavePartnerResult(tx, phase, i, Success); err != nil {
 				return fmt.Errorf("save partner result failed: %v, %v, %v", phase, i, err)
 			}
 		}
@@ -308,7 +308,7 @@ func (tx *Transaction) undoNormal(undoOffset int) error {
 				return fmt.Errorf("partner return err: %v, %v, %v", phase, i, err)
 			}
 
-			if err := tx.storage.SavePartnerResult(tx, phase, i, Success); err != nil {
+			if err := tx.storage().SavePartnerResult(tx, phase, i, Success); err != nil {
 				return fmt.Errorf("save partner result failed: %v, %v, %v", phase, i, err)
 			}
 		}
@@ -323,7 +323,7 @@ func (tx *Transaction) getPartnerResult(phase string, offset int) (result Result
 	}
 
 	var err error
-	if result, err = tx.storage.GetPartnerResult(tx, phase, offset); err != nil {
+	if result, err = tx.storage().GetPartnerResult(tx, phase, offset); err != nil {
 		return ""
 	}
 
