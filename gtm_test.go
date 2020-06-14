@@ -1,6 +1,7 @@
 package gtm_test
 
 import (
+	"log"
 	"testing"
 
 	"github.com/quanhengzhuang/gtm"
@@ -30,6 +31,16 @@ func TestNew(t *testing.T) {
 		t.Logf("tx's result = uncertain: err = %v", err)
 	default:
 		t.Errorf("unexpected result: %v", result)
+	}
+}
+
+func TestBackground(t *testing.T) {
+	tx := gtm.New()
+	tx.AddNormalPartners(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
+	tx.AddUncertainPartner(&OrderCreator{OrderID: "100001", UserID: 20001, ProductID: 31, Amount: 99})
+
+	if err := tx.ExecuteBackground(); err != nil {
+		log.Printf("execute background err = %v", err)
 	}
 }
 
