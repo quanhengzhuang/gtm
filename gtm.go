@@ -68,10 +68,6 @@ func SetStorage(storage Storage) {
 	defaultStorage = storage
 }
 
-func GetTimeoutTransactions(count int) (transactions []*GTM, err error) {
-	return defaultStorage.GetTimeoutTransactions(count)
-}
-
 func (g *GTM) AddPartners(normal []NormalPartner, uncertain UncertainPartner, certain []CertainPartner) *GTM {
 	g.NormalPartners = normal
 	g.UncertainPartner = uncertain
@@ -100,14 +96,32 @@ func (g *GTM) ExecuteBackground() (err error) {
 	return nil
 }
 
-// ExecuteContinue use to complete the transaction.
-func (g *GTM) ExecuteContinue() (result Result, err error) {
+// RetryTimeoutTransactions retry to complete timeout transactions.
+// Count is used to set the total number of transactions per retry.
+// Returns the total number of actual retries, and retry errors.
+func RetryTimeoutTransactions(count int) (retryCount int, retryErrs []error, err error) {
+	transactions, err := defaultStorage.GetTimeoutTransactions(count)
+	if err != nil {
+		return 0, nil, fmt.Errorf("get timeout transactions err: %v", err)
+	}
+
+	for _, tx := range transactions {
+		if _, err := tx.ExecuteRetry(); err != nil {
+			retryErrs = append(retryErrs, err)
+		}
+	}
+
+	return len(transactions), retryErrs, nil
+}
+
+// ExecuteRetry use to complete the transaction.
+func (g *GTM) ExecuteRetry() (result Result, err error) {
 	// todo write once
 	g.storage = defaultStorage
 	g.timer = defaultTimer
 
 	retryTime := g.timer.CalcRetryTime(g.Times+1, g.Timeout)
-	if err := g.storage.SetTransactionRetryTime(g.ID, g.Times+1, retryTime); err != nil {
+	if err := g.storage.SetTransactionRetryTime(g, g.Times+1, retryTime); err != nil {
 		return Uncertain, fmt.Errorf("set transaction retry time err: %v", err)
 	}
 
@@ -202,7 +216,7 @@ func (g *GTM) doUncertain() (result Result, undoOffset int, err error) {
 		return Success, 0, nil
 	}
 
-	phase := "uncertain-do"
+	phase := "do-uncertain"
 
 	if result = g.getPartnerResult(phase, 0); result == "" {
 		result, err = g.UncertainPartner.Do()
