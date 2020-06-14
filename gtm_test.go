@@ -19,8 +19,8 @@ func init() {
 
 func TestNew(t *testing.T) {
 	tx := gtm.New()
-	tx.AddNormalPartners(&Payer{"100000000001", 10001, 99})
-	tx.AddUncertainPartner(&OrderCreator{1990001, 10001, 11, 99})
+	tx.AddNormalPartners(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
+	tx.AddUncertainPartner(&OrderCreator{OrderID: "100001", UserID: 20001, ProductID: 31, Amount: 99})
 
 	switch result, err := tx.Execute(); result {
 	case gtm.Success:

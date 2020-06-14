@@ -8,7 +8,7 @@ import (
 // GTM is the definition of global transaction manager.
 // Including multiple NormalPartners, one UncertainPartner, multiple CertainPartners.
 type GTM struct {
-	ID   int
+	ID   string
 	Name string
 
 	Times     int
@@ -58,10 +58,6 @@ func (g *GTM) SetName(name string) *GTM {
 func (g *GTM) SetTimeout(timeout time.Duration) *GTM {
 	g.Timeout = timeout
 	return g
-}
-
-func (g *GTM) GetID() int {
-	return g.ID
 }
 
 func SetStorage(storage Storage) {

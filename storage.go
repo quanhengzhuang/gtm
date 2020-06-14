@@ -8,21 +8,21 @@ type Storage interface {
 	// Save the transaction data.
 	// Must be reliable.
 	// Return a unique transaction ID.
-	SaveTransaction(g *GTM) (id int, err error)
+	SaveTransaction(g *GTM) (id string, err error)
 
 	// Save the execution result of the transaction.
 	// Must be reliable.
-	SaveTransactionResult(id int, result Result) error
+	SaveTransactionResult(id string, result Result) error
 
 	// Save the execution result of partner.
 	// Performance first, not necessarily reliable.
-	SavePartnerResult(id int, phase string, offset int, result Result) error
+	SavePartnerResult(id string, phase string, offset int, result Result) error
 
 	// Return partner's result
-	GetPartnerResult(id int, phase string, offset int) (Result, error)
+	GetPartnerResult(id string, phase string, offset int) (Result, error)
 
 	// Set transaction's retryTime.
-	SetTransactionRetryTime(g *GTM, times int, newRetryTime time.Time) error
+	SetTransactionRetryTime(tx *GTM, times int, newRetryTime time.Time) error
 
 	// Return transactions to be retried.
 	GetTimeoutTransactions(count int) ([]*GTM, error)

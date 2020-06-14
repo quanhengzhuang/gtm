@@ -35,7 +35,7 @@ func (p *Payer) Undo() error {
 }
 
 type OrderCreator struct {
-	OrderID   int
+	OrderID   string
 	UserID    int
 	ProductID int
 	Amount    int
