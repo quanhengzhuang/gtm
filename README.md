@@ -39,6 +39,9 @@ if transactions, results, errs, err := gtm.RetryTimeoutTransactions(count); err 
 }
 ```
 
+## Implement the partner
+You can choose to implement the three partners defined in `partner.go`.
+
 ## Custom storage
 You should implement the gtm.Storage interface.
 
