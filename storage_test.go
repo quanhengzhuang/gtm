@@ -17,7 +17,7 @@ type LevelStorage struct {
 }
 
 func NewLevelStorage() *LevelStorage {
-	db, err := leveldb.OpenFile("gtm_data", nil)
+	db, err := leveldb.OpenFile("level_db_storage", nil)
 	if err != nil {
 		log.Fatalf("open failed: %v", err)
 	}

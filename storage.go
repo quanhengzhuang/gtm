@@ -22,7 +22,7 @@ type Storage interface {
 	GetPartnerResult(id int, phase string, offset int) (Result, error)
 
 	// Set transaction's retryTime.
-	SetTransactionRetryTime(id int, times int, retryTime time.Time) error
+	SetTransactionRetryTime(g *GTM, times int, newRetryTime time.Time) error
 
 	// Return transactions to be retried.
 	GetTimeoutTransactions(count int) ([]*GTM, error)
