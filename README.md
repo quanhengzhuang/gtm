@@ -1,5 +1,7 @@
-# gtm
-Global Transaction Manager
+# GTM
+GTM's full name is Global Transaction Manager, a framework for handling distributed transaction issues.
+
+GTM is improved based on 2PC, and easier to use than 2PC.
 
 ## Usage
 ### Import
