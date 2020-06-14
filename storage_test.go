@@ -1,4 +1,4 @@
-package gtm
+package gtm_test
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/quanhengzhuang/gtm"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
@@ -29,7 +30,7 @@ func (s *LevelStorage) Register(value interface{}) {
 	gob.Register(value)
 }
 
-func (s *LevelStorage) SaveTransaction(g *GTM) (id int, err error) {
+func (s *LevelStorage) SaveTransaction(g *gtm.GTM) (id int, err error) {
 	g.ID = int(time.Now().UnixNano())
 
 	// add retry key
@@ -37,7 +38,7 @@ func (s *LevelStorage) SaveTransaction(g *GTM) (id int, err error) {
 	if err := s.db.Put([]byte(retry), []byte(fmt.Sprintf("%v", g.ID)), nil); err != nil {
 		return 0, fmt.Errorf("db put failed: %v", err)
 	}
-	log.Printf("[storage] put retry key: %v", retry)
+	log.Printf("[storage] put retry key: %s", retry)
 
 	// transaction
 	var buffer bytes.Buffer
@@ -53,14 +54,14 @@ func (s *LevelStorage) SaveTransaction(g *GTM) (id int, err error) {
 	return g.ID, nil
 }
 
-func (s *LevelStorage) SaveTransactionResult(id int, result Result) error {
+func (s *LevelStorage) SaveTransactionResult(id int, result gtm.Result) error {
 	key := fmt.Sprintf("gtm-result-%v", id)
 	if err := s.db.Put([]byte(key), []byte(result), nil); err != nil {
 		return fmt.Errorf("db put failed: %v", err)
 	}
 
 	// delete retry
-	if result == Success || result == Fail {
+	if result == gtm.Success || result == gtm.Fail {
 		retry := fmt.Sprintf("gtm-retry-%v", id)
 		if err := s.db.Delete([]byte(retry), nil); err != nil {
 			return fmt.Errorf("delete retry err: %v", err)
@@ -71,7 +72,7 @@ func (s *LevelStorage) SaveTransactionResult(id int, result Result) error {
 	return nil
 }
 
-func (s *LevelStorage) SavePartnerResult(id int, phase string, offset int, result Result) error {
+func (s *LevelStorage) SavePartnerResult(id int, phase string, offset int, result gtm.Result) error {
 	log.Printf("[storage] save partner result. id:%v, phase:%v, offset:%v, result:%v", id, phase, offset, result)
 
 	key := fmt.Sprintf("gtm-partner-%v-%v-%v", id, phase, offset)
@@ -82,7 +83,7 @@ func (s *LevelStorage) SavePartnerResult(id int, phase string, offset int, resul
 	return nil
 }
 
-func (s *LevelStorage) SetTransactionRetryTime(g *GTM, times int, newRetryTime time.Time) error {
+func (s *LevelStorage) SetTransactionRetryTime(g *gtm.GTM, times int, newRetryTime time.Time) error {
 	// add new retry key
 	key := s.getRetryKey(newRetryTime, g.ID)
 	value := []byte(fmt.Sprintf("%v", g.ID))
@@ -95,7 +96,7 @@ func (s *LevelStorage) SetTransactionRetryTime(g *GTM, times int, newRetryTime t
 	if err := s.db.Delete(oldKey, nil); err != nil {
 		return fmt.Errorf("delete err: %v", err)
 	}
-	log.Printf("[storage] set retry key. new:%v, old:%v", key, oldKey)
+	log.Printf("[storage] set retry key. new:%s, old:%s", key, oldKey)
 
 	return nil
 }
@@ -104,7 +105,7 @@ func (s *LevelStorage) getRetryKey(retryTime time.Time, id int) []byte {
 	return []byte(fmt.Sprintf("gtm-retry-%v-%v", retryTime.Unix(), id))
 }
 
-func (s *LevelStorage) GetTimeoutTransactions(count int) (transactions []*GTM, err error) {
+func (s *LevelStorage) GetTimeoutTransactions(count int) (transactions []*gtm.GTM, err error) {
 	var ids [][]byte
 
 	iterator := s.db.NewIterator(util.BytesPrefix([]byte("gtm-retry-")), nil)
@@ -131,7 +132,7 @@ func (s *LevelStorage) GetTimeoutTransactions(count int) (transactions []*GTM, e
 			return nil, fmt.Errorf("get transaction err: %v", err)
 		}
 
-		var g GTM
+		var g gtm.GTM
 		if err := gob.NewDecoder(bytes.NewReader(value)).Decode(&g); err != nil {
 			return nil, fmt.Errorf("gob decode err: %v", err)
 		}
@@ -141,10 +142,15 @@ func (s *LevelStorage) GetTimeoutTransactions(count int) (transactions []*GTM, e
 	return transactions, nil
 }
 
-func (s *LevelStorage) GetPartnerResult(id int, phase string, offset int) (Result, error) {
-	return "", nil
+func (s *LevelStorage) GetPartnerResult(id int, phase string, offset int) (gtm.Result, error) {
+	key := fmt.Sprintf("gtm-partner-%v-%v-%v", id, phase, offset)
+	if value, err := s.db.Get([]byte(key), nil); err != nil {
+		return "", fmt.Errorf("db put failed: %v", err)
+	} else {
+		return gtm.Result(value), nil
+	}
 }
 
 func init() {
-	var _ Storage = &LevelStorage{}
+	var _ gtm.Storage = &LevelStorage{}
 }

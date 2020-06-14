@@ -1,15 +1,16 @@
-package gtm
+package gtm_test
 
 import (
 	"fmt"
+	"github.com/quanhengzhuang/gtm"
 	"log"
 	"math/rand"
 	"time"
 )
 
 var (
-	_ NormalPartner    = &Payer{}
-	_ UncertainPartner = &OrderCreator{}
+	_ gtm.NormalPartner    = &Payer{}
+	_ gtm.UncertainPartner = &OrderCreator{}
 )
 
 type Payer struct {
@@ -18,9 +19,9 @@ type Payer struct {
 	Amount  int
 }
 
-func (p *Payer) Do() (Result, error) {
+func (p *Payer) Do() (gtm.Result, error) {
 	log.Printf("[payer] lock money. p = %+v", p)
-	return Success, nil
+	return gtm.Success, nil
 }
 
 func (p *Payer) DoNext() error {
@@ -40,16 +41,16 @@ type OrderCreator struct {
 	Amount    int
 }
 
-func (order *OrderCreator) Do() (Result, error) {
+func (order *OrderCreator) Do() (gtm.Result, error) {
 	log.Printf("[order] create order. order = %+v", order)
 
 	rand.Seed(time.Now().UnixNano())
 	switch rand.Int() % 3 {
 	case 0:
-		return Success, nil
+		return gtm.Success, nil
 	case 1:
-		return Fail, fmt.Errorf("understock")
+		return gtm.Fail, fmt.Errorf("understock")
 	default:
-		return Uncertain, fmt.Errorf("network anomaly")
+		return gtm.Uncertain, fmt.Errorf("network anomaly")
 	}
 }
