@@ -3,7 +3,9 @@ GTM's full name is `Global Transaction Manager`, a framework for solving distrib
 
 ## Usage
 ### Install
->> go get github.com/quanhengzhuang/gtm
+```
+go get github.com/quanhengzhuang/gtm
+```
 
 ### Start A New Transaction
 ```go
