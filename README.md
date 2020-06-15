@@ -1,5 +1,5 @@
 # GTM
-GTM's full name is Global Transaction Manager, a framework for solving distributed transaction problems. GTM is improved based on 2PC, and easier to use than 2PC. Compared to 2PC, which requires participants to implement three functions, many participants in GTM only need to implement one function.
+GTM's full name is `Global Transaction Manager`, a framework for solving distributed transaction problems. GTM is improved based on 2PC, and easier to use than 2PC. Compared to 2PC, which requires participants to implement three functions, many participants in GTM only need to implement one function.
 
 ## Usage
 ### Import
@@ -9,7 +9,7 @@ import (
 )
 ```
 
-### Start a new transaction
+### Start A New Transaction
 ```go
 tx := gtm.New()
 tx.AddNormalPartners(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
@@ -27,7 +27,7 @@ default:
 }
 ```
 
-### Retry timeout transactions
+### Retry Timeout Transactions
 ```go
 count := 10
 if transactions, results, errs, err := gtm.RetryTimeoutTransactions(count); err != nil {
@@ -42,10 +42,10 @@ if transactions, results, errs, err := gtm.RetryTimeoutTransactions(count); err 
 ## Implement the partner
 You can choose to implement the three partners defined in `partner.go`.
 
-## Custom storage
+## Custom Storage
 You should implement the gtm.Storage interface.
 
 A storage example based on LevelDB is provided in `storage_test.go`, but this is only an example and cannot be used for production. It is recommended to use MySQL + Redis to achieve transaction storage in production.
 
-## More documents
+## More Documents
 https://pkg.go.dev/mod/github.com/quanhengzhuang/gtm
