@@ -72,6 +72,7 @@ func (*SequenceDoer) DoUncertain(tx *Transaction) (result Result, undoOffset int
 		panic("unexpect result value: " + result)
 	}
 }
+
 func (*SequenceDoer) DoNext(tx *Transaction) (err error) {
 	var partners []CertainPartner
 	for _, v := range tx.NormalPartners {
@@ -82,7 +83,7 @@ func (*SequenceDoer) DoNext(tx *Transaction) (err error) {
 	phase := "doNext"
 
 	for i, v := range partners {
-		if result := tx.getPartnerResult(phase, i); result == "" {
+		if result := tx.getPartnerResult(phase, i); result != Success {
 			if err = v.DoNext(); err != nil {
 				return fmt.Errorf("partner return err: %v, %v, %v", phase, i, err)
 			}
@@ -97,10 +98,10 @@ func (*SequenceDoer) DoNext(tx *Transaction) (err error) {
 }
 
 func (*SequenceDoer) Undo(tx *Transaction, undoOffset int) (err error) {
-	phase := "undo-normal"
+	phase := "undo"
 
 	for i := undoOffset; i >= 0; i-- {
-		if result := tx.getPartnerResult(phase, i); result == "" {
+		if result := tx.getPartnerResult(phase, i); result != Success {
 			if err := tx.NormalPartners[i].Undo(); err != nil {
 				return fmt.Errorf("partner return err: %v, %v, %v", phase, i, err)
 			}
