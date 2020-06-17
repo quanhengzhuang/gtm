@@ -11,6 +11,12 @@ type Doer interface {
 	Undo(tx *Transaction, undoOffset int) (err error)
 }
 
+var (
+	_ Doer = &SequenceDoer{}
+)
+
+// SequenceDoer is an sequentially executor.
+// All methods of partner will be executed in the order of registration.
 type SequenceDoer struct{}
 
 func (*SequenceDoer) DoNormal(tx *Transaction) (result Result, undoOffset int, err error) {

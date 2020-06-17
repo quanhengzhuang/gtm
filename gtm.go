@@ -152,7 +152,12 @@ func (tx *Transaction) ExecuteRetry() (result Result, err error) {
 	return tx.execute()
 }
 
-// Execute the transaction and return the final result.
+// Execute will execute the transaction and return the execution result.
+// The first step performed is to save the transaction data for redo.
+// About the returned:
+// 1. The returned results may be Success/Fail/Uncertain.
+// 2. The returned err may not be nil when results is Fail/Uncertain.
+// 3. When the result is Success/Fail, it means that the transaction has reached the final state.
 func (tx *Transaction) Execute() (result Result, err error) {
 	tx.Times = 1
 	tx.RetryTime = tx.timer().CalcRetryTime(0, tx.Timeout)
@@ -196,6 +201,8 @@ func (tx *Transaction) execute() (result Result, err error) {
 
 // do is used to execute uncertain operations.
 // Equivalent to the Prepare phase in 2PC.
+// The result of Do is uncertain.
+// If successful, DoNext will be executed; if it fails, Undo will be executed.
 func (tx *Transaction) do() (result Result, undoOffset int, err error) {
 	result, undoOffset, err = tx.doer().DoNormal(tx)
 	if result != Success {
@@ -207,18 +214,21 @@ func (tx *Transaction) do() (result Result, undoOffset int, err error) {
 
 // doNext is used to supplement do.
 // Equivalent to the Commit phase in 2PC.
-// Failure is not allowed at this phase and will be retried.
+// DoNext expects all results to be successful, otherwise it will try again.
 func (tx *Transaction) doNext() error {
 	return tx.doer().DoNext(tx)
 }
 
 // undo will rollback all successful do.
 // Equivalent to the Rollback phase in 2PC.
-// Failure is not allowed at this phase and will be retried.
+// Undo expects all results to be successful, otherwise it will try again.
 func (tx *Transaction) undo(undoOffset int) error {
 	return tx.doer().Undo(tx, undoOffset)
 }
 
+// getPartnerResult returns the execution result of the partner at each phase.
+// The transaction will not call storage for the first time to improve performance.
+// Errors returned by Storage will be ignored for the transaction to continue.
 func (tx *Transaction) getPartnerResult(phase string, offset int) (result Result) {
 	if tx.Times == 0 {
 		return ""
