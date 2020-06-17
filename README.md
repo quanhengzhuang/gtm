@@ -7,7 +7,7 @@ GTM's full name is `Global Transaction Manager`, a framework for solving distrib
 go get github.com/quanhengzhuang/gtm
 ```
 
-### Start A New Transaction
+### Start a New Transaction
 ```go
 tx := gtm.New()
 tx.AddNormalPartners(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
@@ -37,10 +37,10 @@ if transactions, results, errs, err := gtm.RetryTimeoutTransactions(count); err 
 }
 ```
 
-## Implement The Partner
+## Implement the Partner
 You can choose to implement the three partners defined in `partner.go`.
 
-## Custom Storage
+## Custom the Storage
 You should implement the gtm.Storage interface.
 
 A storage example based on LevelDB is provided in `storage_test.go`, but this is only an example and cannot be used for production. It is recommended to use MySQL + Redis to achieve transaction storage in production.
