@@ -8,6 +8,19 @@ go get github.com/quanhengzhuang/gtm
 ```
 
 ### Start a New Transaction
+Set the storage engine. DBStorage provided by GTM is used here, you can also set up other storage, or customize your own storage. This block can only be executed once when the program is initialized.
+
+```go
+db, err := gorm.Open("mysql", "root:root1234@/gtm?charset=utf8&parseTime=True&loc=Local")
+if err != nil {
+	log.Fatalf("db open failed: %v", err)
+}
+
+dbs := gtm.NewDBStorage(db)
+gtm.SetStorage(dbs)
+```
+
+Execute a distributed transaction.
 ```go
 tx := gtm.New()
 tx.AddNormalPartners(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
