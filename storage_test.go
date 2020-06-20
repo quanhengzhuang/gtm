@@ -81,7 +81,7 @@ func (s *LevelStorage) SaveTransactionResult(tx *gtm.Transaction, result gtm.Res
 	return nil
 }
 
-func (s *LevelStorage) SavePartnerResult(tx *gtm.Transaction, phase string, offset int, result gtm.Result) error {
+func (s *LevelStorage) SavePartnerResult(tx *gtm.Transaction, phase string, offset int, cost time.Duration, result gtm.Result) error {
 	log.Printf("[storage] save partner result. id:%v, phase:%v, offset:%v, result:%v", tx.ID, phase, offset, result)
 
 	key := fmt.Sprintf("gtm-partner-%v-%v-%v", tx.ID, phase, offset)
