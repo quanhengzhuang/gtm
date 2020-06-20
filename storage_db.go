@@ -15,6 +15,16 @@ var (
 	_ Storage = &DBStorage{}
 )
 
+// DBStorage is a Storage implementation using DB.
+// DB is an instance of gorm and used after injection.
+type DBStorage struct {
+	db *gorm.DB
+}
+
+func NewDBStorage(db *gorm.DB) *DBStorage {
+	return &DBStorage{db: db}
+}
+
 /*
 DROP TABLE gtm_transactions;
 
@@ -79,14 +89,6 @@ type DBStoragePartnerResult struct {
 
 func (r *DBStoragePartnerResult) TableName() string {
 	return "gtm_partner_result"
-}
-
-type DBStorage struct {
-	db *gorm.DB
-}
-
-func NewDBStorage(db *gorm.DB) *DBStorage {
-	return &DBStorage{db: db}
 }
 
 func (s *DBStorage) SaveTransaction(tx *Transaction) (id string, err error) {
