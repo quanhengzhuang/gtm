@@ -16,7 +16,7 @@ type Storage interface {
 
 	// Save the execution result of partner.
 	// Performance first, not necessarily reliable.
-	SavePartnerResult(tx *Transaction, phase string, offset int, result Result) error
+	SavePartnerResult(tx *Transaction, phase string, offset int, cost time.Duration, result Result) error
 
 	// Return partner's result
 	GetPartnerResult(tx *Transaction, phase string, offset int) (Result, error)

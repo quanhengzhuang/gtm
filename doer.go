@@ -2,6 +2,7 @@ package gtm
 
 import (
 	"fmt"
+	"time"
 )
 
 type Doer interface {
@@ -24,8 +25,9 @@ func (*SequenceDoer) DoNormal(tx *Transaction) (result Result, undoOffset int, e
 
 	for i, partner := range tx.NormalPartners {
 		if result = tx.getPartnerResult(phase, i); result == "" {
+			begin := time.Now()
 			result, err = partner.Do()
-			if err := tx.storage().SavePartnerResult(tx, phase, i, result); err != nil {
+			if err := tx.storage().SavePartnerResult(tx, phase, i, time.Since(begin), result); err != nil {
 				return Uncertain, i, fmt.Errorf("save partner result failed: %v, %v, %v, %v", phase, i, result, err)
 			}
 		}
@@ -53,9 +55,10 @@ func (*SequenceDoer) DoUncertain(tx *Transaction) (result Result, undoOffset int
 	phase := "do-uncertain"
 
 	if result = tx.getPartnerResult(phase, 0); result == "" {
+		begin := time.Now()
 		result, err = tx.UncertainPartner.Do()
 		if result == Success || result == Fail {
-			if err := tx.storage().SavePartnerResult(tx, phase, 0, result); err != nil {
+			if err := tx.storage().SavePartnerResult(tx, phase, 0, time.Since(begin), result); err != nil {
 				return Uncertain, 0, fmt.Errorf("save partner result failed: %v, %v, %v", phase, result, err)
 			}
 		}
@@ -84,11 +87,12 @@ func (*SequenceDoer) DoNext(tx *Transaction) (err error) {
 
 	for i, v := range partners {
 		if result := tx.getPartnerResult(phase, i); result != Success {
+			begin := time.Now()
 			if err = v.DoNext(); err != nil {
 				return fmt.Errorf("partner return err: %v, %v, %v", phase, i, err)
 			}
 
-			if err := tx.storage().SavePartnerResult(tx, phase, i, Success); err != nil {
+			if err := tx.storage().SavePartnerResult(tx, phase, i, time.Since(begin), Success); err != nil {
 				return fmt.Errorf("save partner result failed: %v, %v, %v", phase, i, err)
 			}
 		}
@@ -102,11 +106,12 @@ func (*SequenceDoer) Undo(tx *Transaction, undoOffset int) (err error) {
 
 	for i := undoOffset; i >= 0; i-- {
 		if result := tx.getPartnerResult(phase, i); result != Success {
+			begin := time.Now()
 			if err := tx.NormalPartners[i].Undo(); err != nil {
 				return fmt.Errorf("partner return err: %v, %v, %v", phase, i, err)
 			}
 
-			if err := tx.storage().SavePartnerResult(tx, phase, i, Success); err != nil {
+			if err := tx.storage().SavePartnerResult(tx, phase, i, time.Since(begin), Success); err != nil {
 				return fmt.Errorf("save partner result failed: %v, %v, %v", phase, i, err)
 			}
 		}
