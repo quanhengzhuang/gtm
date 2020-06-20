@@ -1,9 +1,13 @@
 package gtm_test
 
 import (
+	"fmt"
 	"log"
 	"testing"
+	"time"
 
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/mysql"
 	"github.com/quanhengzhuang/gtm"
 )
 
@@ -15,6 +19,14 @@ func init() {
 	storage.Register(&OrderCreator{})
 
 	gtm.SetStorage(storage)
+
+	db, err := gorm.Open("mysql", "root:root1234@/gtm?charset=utf8&parseTime=True&loc=Local")
+	if err != nil {
+		log.Fatalf("db open failed: %v", err)
+	}
+
+	dbs := gtm.NewDBStorage(db)
+	gtm.SetStorage(dbs)
 }
 
 func TestNew(t *testing.T) {
@@ -29,8 +41,6 @@ func TestNew(t *testing.T) {
 		t.Logf("tx's result = fail. err = %+v", err)
 	case gtm.Uncertain:
 		t.Logf("tx's result = uncertain: err = %v", err)
-	default:
-		t.Errorf("unexpected result: %v", result)
 	}
 }
 
@@ -44,13 +54,27 @@ func TestBackground(t *testing.T) {
 	}
 }
 
-func TestRetry(t *testing.T) {
+func retry() error {
 	count := 10
-	if transactions, results, errs, err := gtm.RetryTimeoutTransactions(count); err != nil {
-		t.Errorf("retry err: %v", err)
-	} else {
-		for k, tx := range transactions {
-			t.Logf("retry id = %v, result = %v, err = %v", tx.ID, results[k], errs[k])
+
+	for {
+		transactions, results, errs, err := gtm.RetryTimeoutTransactions(count)
+		if err != nil {
+			return fmt.Errorf("retry err: %v", err)
 		}
+
+		for k, tx := range transactions {
+			log.Printf("retry id = %v, result = %v, err = %v", tx.ID, results[k], errs[k])
+		}
+
+		if len(transactions) == 0 {
+			time.Sleep(time.Minute)
+		}
+	}
+}
+
+func TestRetry(t *testing.T) {
+	if err := retry(); err != nil {
+		t.Errorf("retry failed: %v", err)
 	}
 }
