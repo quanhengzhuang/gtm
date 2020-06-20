@@ -34,8 +34,6 @@ case gtm.Fail:
 	t.Logf("tx's result = fail. err = %+v", err)
 case gtm.Uncertain:
 	t.Logf("tx's result = uncertain: err = %v", err)
-default:
-	t.Errorf("unexpected result: %v", result)
 }
 ```
 
