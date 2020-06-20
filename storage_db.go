@@ -2,6 +2,7 @@ package gtm
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/gob"
 	"fmt"
 	"strconv"
@@ -180,12 +181,17 @@ func (s *DBStorage) encode(tx *Transaction) (string, error) {
 		return "", fmt.Errorf("gob encode err: %v", err)
 	}
 
-	return buffer.String(), nil
+	return base64.StdEncoding.EncodeToString(buffer.Bytes()), nil
 }
 
-func (s *DBStorage) decode(data string) (*Transaction, error) {
+func (s *DBStorage) decode(content string) (*Transaction, error) {
+	data, err := base64.StdEncoding.DecodeString(content)
+	if err != nil {
+		return nil, fmt.Errorf("base64 decode err :%v", err)
+	}
+
 	var tx Transaction
-	if err := gob.NewDecoder(bytes.NewReader([]byte(data))).Decode(&tx); err != nil {
+	if err := gob.NewDecoder(bytes.NewReader(data)).Decode(&tx); err != nil {
 		return nil, fmt.Errorf("gob decode err: %v", err)
 	}
 
