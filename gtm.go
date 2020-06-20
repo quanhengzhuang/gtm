@@ -94,6 +94,14 @@ func (tx *Transaction) doer() Doer {
 	return defaultDoer
 }
 
+func (tx *Transaction) timeout() time.Duration {
+	if tx.Timeout > 0 {
+		return tx.Timeout
+	}
+
+	return defaultTimeout
+}
+
 func (tx *Transaction) AddNormalPartners(partners ...NormalPartner) *Transaction {
 	tx.NormalPartners = append(tx.NormalPartners, partners...)
 	return tx
@@ -116,7 +124,8 @@ func (tx *Transaction) AddAsyncPartners(partners ...CertainPartner) *Transaction
 
 // ExecuteBackground will return immediately.
 func (tx *Transaction) ExecuteBackground() (err error) {
-	tx.RetryTime = tx.timer().CalcRetryTime(0, tx.Timeout)
+	tx.RetryTime = tx.timer().CalcRetryTime(0, tx.timeout())
+	tx.Timeout = tx.timeout()
 	if _, err := tx.storage().SaveTransaction(tx); err != nil {
 		return fmt.Errorf("save transaction failed: %v", err)
 	}
@@ -144,7 +153,7 @@ func RetryTimeoutTransactions(count int) (transactions []*Transaction, results [
 
 // ExecuteRetry use to complete the transaction.
 func (tx *Transaction) ExecuteRetry() (result Result, err error) {
-	retryTime := tx.timer().CalcRetryTime(tx.Times+1, tx.Timeout)
+	retryTime := tx.timer().CalcRetryTime(tx.Times+1, tx.timeout())
 	if err := tx.storage().UpdateTransactionRetryTime(tx, tx.Times+1, retryTime); err != nil {
 		return Uncertain, fmt.Errorf("set transaction retry time err: %v", err)
 	}
@@ -160,7 +169,8 @@ func (tx *Transaction) ExecuteRetry() (result Result, err error) {
 // 3. When the result is Success/Fail, it means that the transaction has reached the final state.
 func (tx *Transaction) Execute() (result Result, err error) {
 	tx.Times = 1
-	tx.RetryTime = tx.timer().CalcRetryTime(0, tx.Timeout)
+	tx.RetryTime = tx.timer().CalcRetryTime(0, tx.timeout())
+	tx.Timeout = tx.timeout()
 	if tx.ID, err = tx.storage().SaveTransaction(tx); err != nil {
 		return Fail, fmt.Errorf("save transaction failed: %v", err)
 	}
