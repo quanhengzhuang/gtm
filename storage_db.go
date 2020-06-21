@@ -11,10 +11,6 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-var (
-	_ Storage = &DBStorage{}
-)
-
 // DBStorage is a GTM Storage implementation using DB.
 // It depends on a gorm.DB.
 type DBStorage struct {
