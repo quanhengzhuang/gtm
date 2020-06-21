@@ -25,14 +25,15 @@ func TestNew(t *testing.T) {
 	tx := gtm.New()
 	tx.AddNormalPartners(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
 	tx.AddUncertainPartner(&OrderCreator{OrderID: "100001", UserID: 20001, ProductID: 31, Amount: 99})
+	tx.AddAsyncPartners(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
 
 	switch result, err := tx.Execute(); result {
 	case gtm.Success:
-		t.Logf("tx's result = success")
+		t.Logf("tx id = %v, result = success", tx.ID)
 	case gtm.Fail:
-		t.Logf("tx's result = fail. err = %+v", err)
+		t.Logf("tx id = %v, result = fail. err = %+v", tx.ID, err)
 	default:
-		t.Logf("tx's result = %v: err = %v", result, err)
+		t.Logf("tx id = %v, result = %v: err = %v", tx.ID, result, err)
 	}
 }
 
