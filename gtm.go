@@ -180,12 +180,15 @@ func (tx *Transaction) execute() (result Result, err error) {
 
 	switch result {
 	case Success:
-		if err := tx.doNext(); err != nil {
+		done, err := tx.doNext()
+		if err != nil {
 			return Uncertain, fmt.Errorf("doNext() failed: %v", err)
 		}
 
-		if err := tx.storage().SaveTransactionResult(tx, Success); err != nil {
-			return Uncertain, fmt.Errorf("save transaction result failed: %v, %v", Success, err)
+		if done {
+			if err := tx.storage().SaveTransactionResult(tx, Success); err != nil {
+				return Uncertain, fmt.Errorf("save transaction result failed: %v, %v", Success, err)
+			}
 		}
 
 		return Success, nil
@@ -220,7 +223,7 @@ func (tx *Transaction) do() (result Result, undoOffset int, err error) {
 // doNext is used to supplement do.
 // Equivalent to the Commit phase in 2PC.
 // DoNext expects all results to be successful, otherwise it will try again.
-func (tx *Transaction) doNext() error {
+func (tx *Transaction) doNext() (done bool, err error) {
 	return tx.doer().DoNext(tx)
 }
 
