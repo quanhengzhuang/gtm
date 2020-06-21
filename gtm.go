@@ -28,10 +28,6 @@ const (
 	Success   Result = "success"
 	Fail      Result = "fail"
 	Uncertain Result = "uncertain"
-
-	// Use for Transaction only.
-	doNextRetrying Result = "doNextRetrying"
-	undoRetrying   Result = "undoRetrying"
 )
 
 var (
@@ -98,7 +94,6 @@ func (tx *Transaction) timeout() time.Duration {
 	if tx.Timeout > 0 {
 		return tx.Timeout
 	}
-
 	return defaultTimeout
 }
 
@@ -122,9 +117,10 @@ func (tx *Transaction) AddAsyncPartners(partners ...CertainPartner) *Transaction
 	return tx
 }
 
-// ExecuteBackground will return immediately.
-func (tx *Transaction) ExecuteBackground() (err error) {
-	tx.RetryTime = tx.timer().CalcRetryTime(0, tx.timeout())
+// ExecuteAsync save the transaction only and will return immediately.
+// The transaction will be executed asynchronously in the background.
+func (tx *Transaction) ExecuteAsync() (err error) {
+	tx.RetryTime = time.Now()
 	tx.Timeout = tx.timeout()
 	if _, err := tx.storage().SaveTransaction(tx); err != nil {
 		return fmt.Errorf("save transaction failed: %v", err)
@@ -153,8 +149,9 @@ func RetryTimeoutTransactions(count int) (transactions []*Transaction, results [
 
 // ExecuteRetry use to complete the transaction.
 func (tx *Transaction) ExecuteRetry() (result Result, err error) {
-	retryTime := tx.timer().CalcRetryTime(tx.Times+1, tx.timeout())
-	if err := tx.storage().UpdateTransactionRetryTime(tx, tx.Times+1, retryTime); err != nil {
+	tx.Times++
+	retryTime := tx.timer().CalcRetryTime(tx.Times, tx.timeout())
+	if err := tx.storage().UpdateTransactionRetryTime(tx, tx.Times, retryTime); err != nil {
 		return Uncertain, fmt.Errorf("set transaction retry time err: %v", err)
 	}
 
@@ -184,7 +181,6 @@ func (tx *Transaction) execute() (result Result, err error) {
 	switch result {
 	case Success:
 		if err := tx.doNext(); err != nil {
-			_ = tx.storage().SaveTransactionResult(tx, doNextRetrying)
 			return Uncertain, fmt.Errorf("doNext() failed: %v", err)
 		}
 
@@ -195,7 +191,6 @@ func (tx *Transaction) execute() (result Result, err error) {
 		return Success, nil
 	case Fail:
 		if err := tx.undo(undoOffset); err != nil {
-			_ = tx.storage().SaveTransactionResult(tx, undoRetrying)
 			return Uncertain, fmt.Errorf("undo() failed: %v", err)
 		}
 
@@ -240,7 +235,7 @@ func (tx *Transaction) undo(undoOffset int) error {
 // The transaction will not call storage for the first time to improve performance.
 // Errors returned by Storage will be ignored for the transaction to continue.
 func (tx *Transaction) getPartnerResult(phase string, offset int) (result Result) {
-	if tx.Times == 0 {
+	if tx.Times <= 1 {
 		return ""
 	}
 
