@@ -194,6 +194,12 @@ func (s *DBStorage) GetTimeoutTransactions(count int) (txs []*Transaction, err e
 	return txs, nil
 }
 
+func (s *DBStorage) Register(values ...interface{}) {
+	for _, value := range values {
+		gob.Register(value)
+	}
+}
+
 func (s *DBStorage) encode(tx *Transaction) (string, error) {
 	var buffer bytes.Buffer
 	if err := gob.NewEncoder(&buffer).Encode(tx); err != nil {
