@@ -40,7 +40,7 @@ CREATE TABLE gtm_transactions (
 DROP TABLE gtm_partner_result;
 CREATE TABLE gtm_partner_result (
 	id              bigint UNSIGNED NOT NULL AUTO_INCREMENT,
-	tx_id           bigint UNSIGNED NOT NULL,
+	transaction_id  bigint UNSIGNED NOT NULL,
 	phase           varchar(20) NOT NULL,
 	offset          tinyint UNSIGNED NOT NULL,
 	result          varchar(20) NOT NULL,
@@ -49,7 +49,7 @@ CREATE TABLE gtm_partner_result (
 	updated_at      timestamp NOT NULL,
 
 	PRIMARY KEY (id),
-	UNIQUE KEY uni_tid (tx_id, phase, offset)
+	UNIQUE KEY uni_tx_id (transaction_id, phase, offset)
 );
 ```
 
