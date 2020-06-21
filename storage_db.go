@@ -15,12 +15,13 @@ var (
 	_ Storage = &DBStorage{}
 )
 
-// DBStorage is a Storage implementation using DB.
-// DB is an instance of gorm and used after injection.
+// DBStorage is a GTM Storage implementation using DB.
+// It depends on a gorm.DB.
 type DBStorage struct {
 	db *gorm.DB
 }
 
+// NewDBStorage returns a *DBStorage and needs to be injected into the gorm.DB.
 func NewDBStorage(db *gorm.DB) *DBStorage {
 	return &DBStorage{db: db}
 }
@@ -29,25 +30,25 @@ func NewDBStorage(db *gorm.DB) *DBStorage {
 DROP TABLE gtm_transactions;
 
 CREATE TABLE gtm_transactions (
-	id          bigint UNSIGNED NOT NULL AUTO_INCREMENT,
-	name        varchar(50) NOT NULL,
-	times       int UNSIGNED NOT NULL,
-	retry_time  timestamp NOT NULL,
-	timeout     int UNSIGNED NOT NULL,
-	result      varchar(20) NOT NULL,
-	content     mediumtext,
-	created_at  timestamp NOT NULL,
-	updated_at  timestamp NOT NULL,
+	id         bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+	name       varchar(50) NOT NULL,
+	times      int UNSIGNED NOT NULL,
+	retry_at   timestamp NOT NULL,
+	timeout    int UNSIGNED NOT NULL,
+	result     varchar(20) NOT NULL,
+	content    mediumtext,
+	created_at timestamp NOT NULL,
+	updated_at timestamp NOT NULL,
 
 	PRIMARY KEY (id),
-	KEY idx_retry (result, retry_time)
+	KEY idx_retry (result, retry_at)
 );
 */
 type DBStorageTransaction struct {
 	ID        int
 	Name      string
 	Times     int
-	RetryTime time.Time
+	RetryAt   time.Time
 	Timeout   int
 	Result    string
 	Content   string
@@ -55,7 +56,7 @@ type DBStorageTransaction struct {
 	UpdatedAt time.Time
 }
 
-func (t *DBStorageTransaction) TableName() string {
+func (*DBStorageTransaction) TableName() string {
 	return "gtm_transactions"
 }
 
@@ -64,7 +65,7 @@ DROP TABLE gtm_partner_result;
 
 CREATE TABLE gtm_partner_result (
 	id              bigint UNSIGNED NOT NULL AUTO_INCREMENT,
-	tx_id           bigint UNSIGNED NOT NULL,
+	transaction_id  bigint UNSIGNED NOT NULL,
 	phase           varchar(20) NOT NULL,
 	offset          tinyint UNSIGNED NOT NULL,
 	result          varchar(20) NOT NULL,
@@ -73,24 +74,25 @@ CREATE TABLE gtm_partner_result (
 	updated_at      timestamp NOT NULL,
 
 	PRIMARY KEY (id),
-	UNIQUE KEY uni_tid (tx_id, phase, offset)
+	UNIQUE KEY uni_tx_id (transaction_id, phase, offset)
 );
 */
 type DBStoragePartnerResult struct {
-	ID        int
-	TxID      int
-	Offset    int
-	Phase     string
-	Result    string
-	Cost      int
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID            int
+	TransactionID int
+	Offset        int
+	Phase         string
+	Result        string
+	Cost          int
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
-func (r *DBStoragePartnerResult) TableName() string {
+func (*DBStoragePartnerResult) TableName() string {
 	return "gtm_partner_result"
 }
 
+// SaveTransaction save transaction data to db.
 func (s *DBStorage) SaveTransaction(tx *Transaction) (id string, err error) {
 	var content string
 	if content, err = s.encode(tx); err != nil {
@@ -98,11 +100,11 @@ func (s *DBStorage) SaveTransaction(tx *Transaction) (id string, err error) {
 	}
 
 	data := DBStorageTransaction{
-		Name:      tx.Name,
-		Times:     tx.Times,
-		RetryTime: tx.RetryTime,
-		Timeout:   int(tx.Timeout.Seconds()),
-		Content:   content,
+		Name:    tx.Name,
+		Times:   tx.Times,
+		RetryAt: tx.RetryTime,
+		Timeout: int(tx.Timeout.Seconds()),
+		Content: content,
 	}
 
 	if err := s.db.Create(&data).Error; err != nil {
@@ -112,6 +114,7 @@ func (s *DBStorage) SaveTransaction(tx *Transaction) (id string, err error) {
 	return strconv.Itoa(data.ID), nil
 }
 
+// SaveTransactionResult save transaction results to db.
 func (s *DBStorage) SaveTransactionResult(tx *Transaction, result Result) error {
 	if err := s.db.Model(DBStorageTransaction{}).Where("id=?", tx.ID).Update(map[string]interface{}{
 		"result": result,
@@ -122,6 +125,7 @@ func (s *DBStorage) SaveTransactionResult(tx *Transaction, result Result) error 
 	return nil
 }
 
+// SavePartnerResult save the result of a phase of partner to db.
 func (s *DBStorage) SavePartnerResult(tx *Transaction, phase string, offset int, cost time.Duration, result Result) error {
 	txID, err := strconv.Atoi(tx.ID)
 	if err != nil {
@@ -129,11 +133,11 @@ func (s *DBStorage) SavePartnerResult(tx *Transaction, phase string, offset int,
 	}
 
 	data := DBStoragePartnerResult{
-		TxID:   txID,
-		Phase:  phase,
-		Offset: offset,
-		Cost:   int(cost.Microseconds()),
-		Result: string(result),
+		TransactionID: txID,
+		Phase:         phase,
+		Offset:        offset,
+		Cost:          int(cost.Microseconds()),
+		Result:        string(result),
 	}
 
 	if err := s.db.Create(&data).Error; err != nil {
@@ -143,42 +147,47 @@ func (s *DBStorage) SavePartnerResult(tx *Transaction, phase string, offset int,
 	return nil
 }
 
+// GetPartnerResult returns the execution result of a partner.
 func (s *DBStorage) GetPartnerResult(tx *Transaction, phase string, offset int) (Result, error) {
-	var result DBStoragePartnerResult
-	if err := s.db.Where("tx_id=? AND phase=? AND offset=?", tx.ID, phase, offset).
-		Find(&result).Error; err != nil {
+	var row DBStoragePartnerResult
+	if err := s.db.Where("transaction_id=? AND phase=? AND offset=?", tx.ID, phase, offset).
+		Find(&row).Error; err != nil {
 		return "", fmt.Errorf("find err: %v", err)
 	}
 
-	return Result(result.Result), nil
+	return Result(row.Result), nil
 }
 
+// UpdateTransactionRetryTime update transaction next retry time.
 func (s *DBStorage) UpdateTransactionRetryTime(tx *Transaction, times int, newRetryTime time.Time) error {
-	if err := s.db.Model(DBStorageTransaction{}).Where("id=?", tx.ID).Update(map[string]interface{}{
-		"times":      times,
-		"retry_time": newRetryTime,
-	}).Error; err != nil {
+	data := map[string]interface{}{
+		"times":    times,
+		"retry_at": newRetryTime,
+	}
+
+	if err := s.db.Model(DBStorageTransaction{}).Where("id=?", tx.ID).Update(data).Error; err != nil {
 		return fmt.Errorf("update err: %v", err)
 	}
 
 	return nil
 }
 
+// GetTimeoutTransactions returns all transactions that require timeout retry.
 func (s *DBStorage) GetTimeoutTransactions(count int) (txs []*Transaction, err error) {
-	var data []DBStorageTransaction
-	if err := s.db.Where("result=? AND retry_time<?", "", time.Now()).
-		Limit(count).Find(&data).Error; err != nil {
+	var rows []DBStorageTransaction
+	err = s.db.Where("result=? AND retry_at<?", "", time.Now()).Limit(count).Find(&rows).Error
+	if err != nil {
 		return nil, fmt.Errorf("find err: %v", err)
 	}
 
-	for _, v := range data {
-		tx, err := s.decode(v.Content)
+	for _, row := range rows {
+		tx, err := s.decode(row.Content)
 		if err != nil {
 			return nil, fmt.Errorf("tx decode err: %v", err)
 		}
 
-		tx.ID = strconv.Itoa(v.ID)
-		tx.Times = v.Times
+		tx.ID = strconv.Itoa(row.ID)
+		tx.Times = row.Times
 		txs = append(txs, tx)
 	}
 
