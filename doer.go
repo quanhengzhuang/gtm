@@ -8,7 +8,7 @@ import (
 type Doer interface {
 	DoNormal(tx *Transaction) (result Result, undoOffset int, err error)
 	DoUncertain(tx *Transaction) (result Result, undoOffset int, err error)
-	DoNext(tx *Transaction) (err error)
+	DoNext(tx *Transaction) (done bool, err error)
 	Undo(tx *Transaction, undoOffset int) (err error)
 }
 
@@ -76,12 +76,18 @@ func (*SequenceDoer) DoUncertain(tx *Transaction) (result Result, undoOffset int
 	}
 }
 
-func (*SequenceDoer) DoNext(tx *Transaction) (err error) {
+func (*SequenceDoer) DoNext(tx *Transaction) (done bool, err error) {
 	var partners []CertainPartner
 	for _, v := range tx.NormalPartners {
 		partners = append(partners, v)
 	}
+
 	partners = append(partners, tx.CertainPartners...)
+
+	if tx.Times > 1 {
+		partners = append(partners, tx.AsyncPartners...)
+		done = true
+	}
 
 	phase := "doNext"
 
@@ -89,16 +95,16 @@ func (*SequenceDoer) DoNext(tx *Transaction) (err error) {
 		if result := tx.getPartnerResult(phase, i); result != Success {
 			begin := time.Now()
 			if err = v.DoNext(); err != nil {
-				return fmt.Errorf("partner return err: %v, %v, %v", phase, i, err)
+				return done, fmt.Errorf("partner return err: %v, %v, %v", phase, i, err)
 			}
 
 			if err := tx.storage().SavePartnerResult(tx, phase, i, time.Since(begin), Success); err != nil {
-				return fmt.Errorf("save partner result failed: %v, %v, %v", phase, i, err)
+				return done, fmt.Errorf("save partner result failed: %v, %v, %v", phase, i, err)
 			}
 		}
 	}
 
-	return nil
+	return done, nil
 }
 
 func (*SequenceDoer) Undo(tx *Transaction, undoOffset int) (err error) {
