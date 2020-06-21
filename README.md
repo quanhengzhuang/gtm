@@ -23,18 +23,18 @@ If you use `DBStorage`, you need to create the following tables.
 ```sql
 DROP TABLE gtm_transactions;
 CREATE TABLE gtm_transactions (
-	id          bigint UNSIGNED NOT NULL AUTO_INCREMENT,
-	name        varchar(50) NOT NULL,
-	times       int UNSIGNED NOT NULL,
-	retry_time  timestamp NOT NULL,
-	timeout     int UNSIGNED NOT NULL,
-	result      varchar(20) NOT NULL,
-	content     mediumtext,
-	created_at  timestamp NOT NULL,
-	updated_at  timestamp NOT NULL,
+	id         bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+	name       varchar(50) NOT NULL,
+	times      int UNSIGNED NOT NULL,
+	retry_at   timestamp NOT NULL,
+	timeout    int UNSIGNED NOT NULL,
+	result     varchar(20) NOT NULL,
+	content    mediumtext,
+	created_at timestamp NOT NULL,
+	updated_at timestamp NOT NULL,
 
 	PRIMARY KEY (id),
-	KEY idx_retry (result, retry_time)
+	KEY idx_retry (result, retry_at)
 );
 
 DROP TABLE gtm_partner_result;
