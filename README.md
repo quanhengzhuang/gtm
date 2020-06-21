@@ -8,7 +8,7 @@ go get github.com/quanhengzhuang/gtm
 ```
 
 ### Set the Storage
-DBStorage provided by GTM is used here, you can also set up other storage, or customize your own storage. By using DBStorage and grom, you can use any type of db to store transaction data and state. This block can only be executed once when the program is initialized.
+`DBStorage` provided by GTM is used here, you can also `set up other storage, or customize your own storage`. By using DBStorage and grom, you can use any type of db to store transaction data and state. This block can only be executed once when the program is initialized.
 
 ```go
 db, err := gorm.Open("mysql", "root:root1234@/gtm?charset=utf8&parseTime=True&loc=Local")
@@ -38,7 +38,7 @@ case gtm.Uncertain:
 ```
 
 ### Retry Timeout Transactions
-RetryTimeoutTransactions can set the number of transactions to retry each time, and finally return the retryed transactions, the results and errors of each transaction.
+`RetryTimeoutTransactions` can set the number of transactions to retry each time, and finally return the retryed transactions, the results and errors of each transaction.
 
 ```go
 transactions, results, errs, err := gtm.RetryTimeoutTransactions(10)
@@ -47,10 +47,10 @@ transactions, results, errs, err := gtm.RetryTimeoutTransactions(10)
 ## Implement the Partner
 You can choose to implement the three partners defined in `partner.go`.
 
-## Custom the Storage
-You should implement the gtm.Storage interface.
+## Customize the Storage
+In addition to the built-in `DBStroage`, you can also customize your own storage engine to achieve better efficiency. For this, you need to implement the `gtm.Storage` interface.
 
-A storage example based on LevelDB is provided in `storage_test.go`, but this is only an example and cannot be used for production. It is recommended to use MySQL + Redis to achieve transaction storage in production.
+It is recommended to use `persistent storage` for transaction data, and the state of the participants can be stored in a faster memory.
 
 ## More Documents
 https://pkg.go.dev/mod/github.com/quanhengzhuang/gtm
