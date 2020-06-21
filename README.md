@@ -38,15 +38,10 @@ case gtm.Uncertain:
 ```
 
 ### Retry Timeout Transactions
+RetryTimeoutTransactions can set the number of transactions to retry each time, and finally return the retryed transactions, the results and errors of each transaction.
+
 ```go
-count := 10
-if transactions, results, errs, err := gtm.RetryTimeoutTransactions(count); err != nil {
-	t.Errorf("retry err: %v", err)
-} else {
-	for k, tx := range transactions {
-		t.Logf("retry id = %v, result = %v, err = %v", tx.ID, results[k], errs[k])
-	}
-}
+transactions, results, errs, err := gtm.RetryTimeoutTransactions(10)
 ```
 
 ## Implement the Partner
