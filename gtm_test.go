@@ -23,9 +23,19 @@ func init() {
 
 func TestNew(t *testing.T) {
 	tx := gtm.New()
-	tx.AddNormalPartners(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
-	tx.AddUncertainPartner(&OrderCreator{OrderID: "100001", UserID: 20001, ProductID: 31, Amount: 99})
-	tx.AddAsyncPartners(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
+	tx.AddNormal(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
+	tx.AddUncertain(&OrderCreator{OrderID: "100001", UserID: 20001, ProductID: 31, Amount: 99})
+	tx.AddAsync(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
+	// tx.AddPartners(
+	// 	[]gtm.NormalPartner{
+	// 		&Payer{OrderID: "100001", UserID: 20001, Amount: 99},
+	// 	},
+	// 	&OrderCreator{OrderID: "100001", UserID: 20001, ProductID: 31, Amount: 99},
+	// 	nil,
+	// 	[]gtm.CertainPartner{
+	// 		&Payer{OrderID: "100001", UserID: 20001, Amount: 99},
+	// 	},
+	// )
 
 	switch result, err := tx.Execute(); result {
 	case gtm.Success:
@@ -40,8 +50,8 @@ func TestNew(t *testing.T) {
 func TestAsync(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		tx := gtm.New()
-		tx.AddNormalPartners(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
-		tx.AddUncertainPartner(&OrderCreator{OrderID: "100001", UserID: 20001, ProductID: 31, Amount: 99})
+		tx.AddNormal(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
+		tx.AddUncertain(&OrderCreator{OrderID: "100001", UserID: 20001, ProductID: 31, Amount: 99})
 
 		if err := tx.ExecuteAsync(); err != nil {
 			t.Errorf("execute background err = %v", err)
