@@ -1,6 +1,7 @@
 package gtm_test
 
 import (
+	"fmt"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	"github.com/quanhengzhuang/gtm"
@@ -69,4 +70,12 @@ func TestRetry(t *testing.T) {
 	for k, tx := range transactions {
 		t.Logf("retry id = %v, result = %v, err = %v", tx.ID, results[k], errs[k])
 	}
+}
+
+func ExampleRetryTimeoutTransactions() {
+	transactions, results, errs, err := gtm.RetryTimeoutTransactions(10)
+
+	fmt.Println(len(transactions), len(results), len(errs), err)
+	// Output:
+	// 10 10 10 <nil>
 }
