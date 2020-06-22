@@ -97,23 +97,32 @@ func (tx *Transaction) timeout() time.Duration {
 	return defaultTimeout
 }
 
-func (tx *Transaction) AddNormalPartners(partners ...NormalPartner) *Transaction {
+func (tx *Transaction) AddNormal(partners ...NormalPartner) *Transaction {
 	tx.NormalPartners = append(tx.NormalPartners, partners...)
 	return tx
 }
 
-func (tx *Transaction) AddUncertainPartner(partner UncertainPartner) *Transaction {
+func (tx *Transaction) AddUncertain(partner UncertainPartner) *Transaction {
 	tx.UncertainPartner = partner
 	return tx
 }
 
-func (tx *Transaction) AddCertainPartners(partners ...CertainPartner) *Transaction {
+func (tx *Transaction) AddCertain(partners ...CertainPartner) *Transaction {
 	tx.CertainPartners = append(tx.CertainPartners, partners...)
 	return tx
 }
 
-func (tx *Transaction) AddAsyncPartners(partners ...CertainPartner) *Transaction {
+func (tx *Transaction) AddAsync(partners ...CertainPartner) *Transaction {
 	tx.AsyncPartners = append(tx.AsyncPartners, partners...)
+	return tx
+}
+
+func (tx *Transaction) AddPartners(normalPartners []NormalPartner, uncertainPartner UncertainPartner, certainPartners, asyncPartners []CertainPartner) *Transaction {
+	tx.NormalPartners = normalPartners
+	tx.UncertainPartner = uncertainPartner
+	tx.CertainPartners = certainPartners
+	tx.AsyncPartners = asyncPartners
+
 	return tx
 }
 
