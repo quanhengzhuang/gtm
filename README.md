@@ -58,8 +58,8 @@ There may be three kinds of return results for each transaction, which need to b
 
 ```go
 tx := gtm.New()
-tx.AddNormalPartners(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
-tx.AddUncertainPartner(&OrderCreator{OrderID: "100001", UserID: 20001, ProductID: 31, Amount: 99})
+tx.AddNormal(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
+tx.AddUncertain(&OrderCreator{OrderID: "100001", UserID: 20001, ProductID: 31, Amount: 99})
 
 switch result, err := tx.Execute(); result {
 case gtm.Success:
