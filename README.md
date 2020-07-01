@@ -13,8 +13,8 @@ If the return value of the method is unacceptable, it will be retried until the 
 
 | | Acceptable return |
 | - | - |
-| Do() (Normal) | Success / Fail / Uncertain / Error |
-| Do() (Uncertain) | Success / Fail |
+| Do() of NormalPartner | Success / Fail / Uncertain / Error |
+| Do() of UncertainPartner | Success / Fail |
 | DoNext() | Success |
 | Undo() | Success |
 
