@@ -107,6 +107,20 @@ In addition to the built-in `DBStroage`, you can also customize your own storage
 
 It is recommended to use `persistent storage` for transaction data, and the state of the participants can be stored in a faster memory.
 
+## About Isolation
+Like most distributed transaction solutions, GTM defaults to an isolation level of `dirty read` level. For most business scenarios, dirty reading is acceptable because of the small probability.
+
+To solve the dirty reading problem, you can implement a lock partner, as follow:
+```go
+type LockPartner struct{}
+
+func (l *Lock) Do() { /* lock */ }
+
+func (l *Lock) DoNext() { /* unlock */ }
+
+func (l *Lock) Undo() { /* unlock */ }
+```
+
 ## The Difference
 - Rollback is implemented as little as possible.
 - Support partial asynchronous execution, or all asynchronous execution.
