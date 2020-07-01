@@ -3,6 +3,7 @@ GTM's full name is `Global Transaction Manager`, a framework for solving distrib
 
 ## Implement a Partner
 `Partner` is the participant of GTM transaction, used to encapsulate the business logic to be executed. Partners are divided into three types in GTM, which can be applied to different business scenarios:
+
 - `NormalPartner` is a participant that need to support rollback. You can implement `Do() + Undo()` to execute business logic and rollback, and DoNext() only return true to ignore, just like a participant in Saga. You can also implement `Do() + DoNext() + Undo()` to lock resources, execute business logic, and unlock resources, just like a participant in 2PC. NormalPartner is executed first in a GTM transaction, and can be any number.
 - `UncertainPartner` is a participant who does not need to support rollback, and the results may succeed or fail. You only need to implement a `Do()` method. UncertainPartner is executed after NormalPartners, and at most one is allowed in a GTM transaction.
 - `CertainPartner` is a participant who does not need to support rollback and needs to guarantee success in business logic. You only need to implement a `DoNext()` method. CertainPartner is executed after UncertainPartner, there can be any number in a GTM transaction.
@@ -15,6 +16,12 @@ About partners need to implement methods are as follows:
 | CertainPartner | | Yes | |
 
 You can find the interface definitions of these three partners in `partner.go`.
+
+Why should Partner be divided into types? 
+
+Just to reduce the implementation of the rollback method. The rollback method not only increases the development cost, but also increases the complexity of the software. At the same time, because the rollback is not easy to test, it is easy to produce bugs.
+
+Different types do increase the difficulty of understanding, but when realizing business requirements, it is reasonable to understand the business in depth.
 
 ## Usage
 ### Install
