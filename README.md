@@ -121,6 +121,15 @@ func (l *Lock) DoNext() { /* unlock */ }
 func (l *Lock) Undo() { /* unlock */ }
 ```
 
+Use LockPartner as the first participant of GTM and acquire the lock in the place of reading, as follow:
+```go
+if locker.RLock() {
+	// You can show directly
+} else {
+	// You can show "Processing"
+}
+```
+
 ## The Difference
 - Rollback is implemented as little as possible.
 - Support partial asynchronous execution, or all asynchronous execution.
