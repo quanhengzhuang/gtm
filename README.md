@@ -1,7 +1,7 @@
 # GTM
 GTM's full name is `Global Transaction Manager`, a framework for solving distributed transaction problems. GTM is improved based on 2PC, and easier to use than 2PC. Compared to 2PC, which requires participants to implement three functions, many participants in GTM only need to implement one function.
 
-## Transaction Partner
+## Implement a Partner
 `Partner` is the participant of GTM transaction, used to encapsulate the business logic to be executed. Partners are divided into three types in GTM, which can be applied to different business scenarios:
 - `NormalPartner` is a participant that need to support rollback. You can implement `Do() + Undo()` to execute business logic and rollback, and DoNext() only return true to ignore, just like a participant in Saga. You can also implement `Do() + DoNext() + Undo()` to lock resources, execute business logic, and unlock resources, just like a participant in 2PC. NormalPartner is executed first in a GTM transaction, and can be any number.
 - `UncertainPartner` is a participant who does not need to support rollback, and the results may succeed or fail. You only need to implement a `Do()` method. UncertainPartner is executed after NormalPartners, and at most one is allowed in a GTM transaction.
@@ -9,10 +9,12 @@ GTM's full name is `Global Transaction Manager`, a framework for solving distrib
 
 About partners need to implement methods are as follows:
 | | Do() | DoNext() | Undo() |
-| - | - | - | - |
+| - | :-: | :-: | :-: |
 | NormalPartner | Yes | Optional | Yes |
 | UncertainPartner | Yes | | |
 | CertainPartner | | Yes | |
+
+You can find the interface definitions of these three partners in `partner.go`.
 
 ## Usage
 ### Install
@@ -90,9 +92,6 @@ case gtm.Uncertain:
 ```go
 transactions, results, errs, err := gtm.RetryTimeoutTransactions(10)
 ```
-
-## Implement the Partner
-You can choose to implement the three partners defined in `partner.go`.
 
 ## Customize the Storage
 In addition to the built-in `DBStroage`, you can also customize your own storage engine to achieve better efficiency. For this, you need to implement the `gtm.Storage` interface.
