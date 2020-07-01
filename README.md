@@ -100,6 +100,8 @@ case gtm.Uncertain:
 transactions, results, errs, err := gtm.RetryTimeoutTransactions(10)
 ```
 
+You can put the above code in a scheduled task to execute.
+
 ## Customize the Storage
 In addition to the built-in `DBStroage`, you can also customize your own storage engine to achieve better efficiency. For this, you need to implement the `gtm.Storage` interface.
 
