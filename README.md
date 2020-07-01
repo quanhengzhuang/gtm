@@ -1,9 +1,5 @@
 # GTM
-GTM's full name is `Global Transaction Manager`, a framework for solving distributed transaction problems. GTM is improved based on 2PC, and easier to use than 2PC. Compared to 2PC, which requires participants to implement three functions, many participants in GTM only need to implement one function.
-
-## The Difference
-- Rollback is implemented as little as possible.
-- Support partial asynchronous execution, or all asynchronous execution.
+GTM's full name is `Global Transaction Manager`, a framework for solving distributed transaction problems. GTM is improved based on 2PC, and easier to use than 2PC. Compared to 2PC, which requires participants to implement three functions, many participants in GTM only need to implement one function. Because we believe that most scenarios do not need to implement rollback.
 
 ## Implement a Partner
 `Partner` is the participant of GTM transaction, used to encapsulate the business logic to be executed. Partners are divided into three types in GTM, which can be applied to different business scenarios:
@@ -110,6 +106,10 @@ You can put the above code in a scheduled task to execute.
 In addition to the built-in `DBStroage`, you can also customize your own storage engine to achieve better efficiency. For this, you need to implement the `gtm.Storage` interface.
 
 It is recommended to use `persistent storage` for transaction data, and the state of the participants can be stored in a faster memory.
+
+## The Difference
+- Rollback is implemented as little as possible.
+- Support partial asynchronous execution, or all asynchronous execution.
 
 ## More Documents
 https://pkg.go.dev/mod/github.com/quanhengzhuang/gtm
