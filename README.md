@@ -8,7 +8,7 @@ GTM's full name is `Global Transaction Manager`, a framework for solving distrib
 - `UncertainPartner` is a participant who does not need to support rollback, and the results may succeed or fail. You only need to implement a `Do()` method. UncertainPartner is executed after NormalPartners, and at most one is allowed in a GTM transaction.
 - `CertainPartner` is a participant who does not need to support rollback and needs to guarantee success in business logic. You only need to implement a `DoNext()` method. CertainPartner is executed after UncertainPartner, there can be any number in a GTM transaction.
 
-About partners need to implement methods are as follows:
+### Partners Need to Implement Methods
 | | Do() | DoNext() | Undo() |
 | - | :-: | :-: | :-: |
 | NormalPartner | Yes | Optional | Yes |
@@ -17,7 +17,7 @@ About partners need to implement methods are as follows:
 
 You can find the interface definitions of these three partners in `partner.go`.
 
-Why should Partner be divided into types? 
+### Why Should Partner be Divided Into Types? 
 
 Just to reduce the implementation of the rollback method. The rollback method not only increases the development cost, but also increases the complexity of the software. At the same time, because the rollback is not easy to test, it is easy to produce bugs.
 
