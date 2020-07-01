@@ -8,6 +8,16 @@ GTM's full name is `Global Transaction Manager`, a framework for solving distrib
 - `UncertainPartner` is a participant who does not need to support rollback, and the results may succeed or fail. You only need to implement a `Do()` method. UncertainPartner is executed after NormalPartners, and at most one is allowed in a GTM transaction.
 - `CertainPartner` is a participant who does not need to support rollback and needs to guarantee success in business logic. You only need to implement a `DoNext()` method. CertainPartner is executed after UncertainPartner, there can be any number in a GTM transaction.
 
+### Acceptable Return of Do() / DoNext() / Undo() 
+If the return value of the method is unacceptable, it will be retried until the return value is acceptable.
+
+| | Acceptable return |
+| - | - |
+| Do() (Normal) | Success / Fail / Uncertain / Error |
+| Do() (Uncertain) | Success / Fail |
+| DoNext() | Success |
+| Undo() | Success |
+
 ### Partners Need to Implement Methods
 | | Do() | DoNext() | Undo() |
 | - | :-: | :-: | :-: |
