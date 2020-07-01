@@ -1,6 +1,10 @@
 # GTM
 GTM's full name is `Global Transaction Manager`, a framework for solving distributed transaction problems. GTM is improved based on 2PC, and easier to use than 2PC. Compared to 2PC, which requires participants to implement three functions, many participants in GTM only need to implement one function.
 
+## The Difference
+- Rollback is implemented as little as possible.
+- Support partial asynchronous execution, or all asynchronous execution.
+
 ## Implement a Partner
 `Partner` is the participant of GTM transaction, used to encapsulate the business logic to be executed. Partners are divided into three types in GTM, which can be applied to different business scenarios:
 
