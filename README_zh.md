@@ -1,7 +1,5 @@
 # GTM
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/quanhengzhuang/gtm)](https://goreportcard.com/report/github.com/quanhengzhuang/gtm)
-
 [English](https://github.com/quanhengzhuang/gtm/blob/master/README.md)
 
 GTM 的全称是 `Global Transaction Manager`，是一个解决分布式事务问题的框架，基于 Go 编写。GTM 的原理类似 2PC 协议，但比其更易用。基于对大量业务场景的深入思考，及长期的实践经验，我们认为，多数场景的事务参与者不需要实现回滚接口。同时 GTM 是 2PC 的超集，可以实现 2PC 的所有场景。
@@ -202,3 +200,5 @@ if locker.RLock() {
 
 ## 更多
 https://pkg.go.dev/mod/github.com/quanhengzhuang/gtm
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/quanhengzhuang/gtm)](https://goreportcard.com/report/github.com/quanhengzhuang/gtm)
