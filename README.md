@@ -1,4 +1,4 @@
-# GTM [![Go Report Card](https://goreportcard.com/badge/github.com/quanhengzhuang/gtm)](https://goreportcard.com/report/github.com/quanhengzhuang/gtm)
+# GTM
 
 [中文](https://github.com/quanhengzhuang/gtm/blob/master/README_zh.md)
 
