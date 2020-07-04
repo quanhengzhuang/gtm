@@ -1,4 +1,7 @@
 # GTM
+
+[中文](https://github.com/quanhengzhuang/gtm/blob/master/README_zh.md)
+
 GTM's full name is `Global Transaction Manager`, a framework for solving distributed transaction problems. GTM is improved based on 2PC, and easier to use than 2PC. Compared to 2PC, which requires participants to implement three functions, many participants in GTM only need to implement one function. Because we believe that most scenarios do not need to implement rollback.
 
 ## Implement a Partner
