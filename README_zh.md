@@ -60,7 +60,8 @@ Partner 分为以下三种：
 | UncertainPartner | 是 | | |
 | CertainPartner | | 是 | |
 
-注：
+方法需要遵守以下约定：
+- Undo() 需要回滚 Do() 的操作；
 - 所有的方法必须实现幂等；
 
 ### Do()/DoNext()/Undo() 的返回值约定
@@ -73,7 +74,15 @@ Partner 分为以下三种：
 | DoNext() | Success |
 | Undo() | Success |
 
-注：
+<table>
+	<tr> <th></th> <th>期望的返回值</th> </tr>
+	<tr> <td>Do() of NormalPartner</td> <td>Success / Fail / Uncertain / Error</td> </tr>
+	<tr> <td>Do() of UncertainPartner</td> <td>Success / Fail</td> </tr>
+	<tr> <td>DoNext()</td> <td>Success</td> </tr>
+	<tr> <td>Undo()</td> <td>Success</td> </tr>
+</table>	
+
+特别说明：
 - Success 表示执行成功，Fail 表示执行失败，Uncertain 表示结果不确定；
 - Do() 返回为 Fail 会认为未产生作用，不会调用该 Partner 的 Undo()；
 - 当结果为 Fail / Uncertain 时可以同时返回 Error；
