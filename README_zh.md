@@ -5,9 +5,9 @@
 GTM 的全称是 `Global Transaction Manager`，是一个解决分布式事务问题的框架，基于 Go 编写。GTM 的原理基于 2PC 协议，但经过改造后，比其更易用，允许业务实现更少的接口，尤其是回滚接口。基于长期的实践经验，以及对大量业务场景的深入思考，我们认为，很多时候并不需要实现回滚接口。本质上，GTM 是 2PC 的超集，可以实现 2PC 的所有场景。
 
 一个 GTM 事务由多个 `Partner` 组成，Partner 是实际业务的封装单元。Partner 在 GTM 中被划分为以下三类：
-1. 支持回滚的业务（`NormalPartner`）
-2. 不支持回滚且可能失败的业务（`UncertainPartner`）
-3. 不支持回滚但能确保成功的业务（`CertainPartner`）
+1. `NormalPartner`：支持回滚的业务（例如余额扣减 + 余额冲正）
+2. `UncertainPartner`：不支持回滚且可能失败的业务（例如一次抢购行为，且抢购未实现回滚）
+3. `CertainPartner`：不支持回滚但能确保成功的业务（例如发红包）
 
 将业务套用以上三种 Partner，GTM 能保证这些 Partner 执行结果的一致性，即要么全部成功，要么全部失败。
 
