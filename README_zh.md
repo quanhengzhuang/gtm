@@ -94,10 +94,21 @@ go get github.com/quanhengzhuang/gtm
 ```
 
 ### 设置存储引擎
-GTM 允许你使用不同的存储引擎，以达到性能最优。
+GTM 的 Partner 和执行状态需要存储，GTM 允许开发者选用不同的存储引擎，或实现自己的存储引擎，以达到性能最优。
 
-`DBStorage` 是 GTM 内置的一个存储引擎，使用数据库来存储事务的数据与状态。使用前需要创建以下表：
-（可以使用任意类型的数据库，建议单独一个库）
+`DBStorage` 是 GTM 内置的一个存储引擎，使用数据库来存储事务的数据与状态。（可以使用任意类型的数据库，建议是一个单独的实例）
+
+如果使用 DBStorage，需要增加以下初始化操作：
+```go
+db, err := gorm.Open("mysql", "root:root1234@/gtm?charset=utf8&parseTime=True&loc=Local")
+if err != nil {
+	log.Fatalf("db open failed: %v", err)
+}
+
+gtm.SetStorage(gtm.NewDBStorage(db))
+```
+
+如果使用 DBStorage，需要创建以下表：
 ```sql
 DROP TABLE gtm_transactions;
 CREATE TABLE gtm_transactions (
@@ -129,16 +140,6 @@ CREATE TABLE gtm_partner_result (
 	PRIMARY KEY (id),
 	UNIQUE KEY uni_tx_id (transaction_id, phase, offset)
 );
-```
-
-程序中的初始化操作如下：
-```go
-db, err := gorm.Open("mysql", "root:root1234@/gtm?charset=utf8&parseTime=True&loc=Local")
-if err != nil {
-	log.Fatalf("db open failed: %v", err)
-}
-
-gtm.SetStorage(gtm.NewDBStorage(db))
 ```
 
 ### 开始一个新事务
