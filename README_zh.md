@@ -6,7 +6,7 @@ GTM 的全称是 `Global Transaction Manager`，是一个解决分布式事务�
 
 一个 GTM 事务由多个 `Partner` 组成，Partner 是实际业务的封装单元。Partner 在 GTM 中被划分为以下三类：
 1. 支持回滚的业务（`NormalPartner`）
-2. 不支持回滚且不能确保成功的业务（`UncertainPartner`）
+2. 不支持回滚且可能失败的业务（`UncertainPartner`）
 3. 不支持回滚但能确保成功的业务（`CertainPartner`）
 
 将业务套用以上三种 Partner，GTM 能保证这些 Partner 执行结果的一致性，即要么全部成功，要么全部失败。
