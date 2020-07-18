@@ -51,8 +51,8 @@ Partner 分为以下三种：
 - `UncertainPartner` 是不需要支持回滚的参与者，并且结果可能成功可能失败。只需要实现一个 `Do()` 方法。 UncertainPartner 最多只能有一个，在 NormalPartner 之后执行。
 - `CertainPartner` 是不需要支持回滚的参与者，但能确保执行成功。只需要实现一个 `DoNext()` 方法。 CertainPartner 可以任意个， 在 UncertainPartner 之后执行。
 
-## Partner 需要实现的方法
-相关定义可参见 `partner.go`。
+### Partner 需要实现的方法
+Partner 的接口定义可参见 [partner.go](https://github.com/quanhengzhuang/gtm/blob/master/partner.go)。
 
 | | Do() | DoNext() | Undo() |
 | - | :-: | :-: | :-: |
@@ -86,7 +86,7 @@ Partner 分为以下三种：
 
 给业务场景分类会增加一点心智成本，但当我们实现业务需求时，理所应当要深入理解业务。
 
-## 使用方法
+## 开始使用
 
 ### 安装
 ```
@@ -185,7 +185,7 @@ transactions, results, errs, err := gtm.RetryTimeoutTransactions(10)
 
 ## 定制存储引擎
 
-除了使用内置的 `DBStorage`，你可以定制实现自己的存储引擎，以达到最优的性能。你需要实现 `gtm.Storage` 接口，参见 `storage.go`。
+除了使用内置的 `DBStorage`，你可以定制实现自己的存储引擎，以达到最优的性能。你需要实现 `gtm.Storage` 接口，参见 [storage.go](https://github.com/quanhengzhuang/gtm/blob/master/storage.go)。
 
 推荐使用`持久化存储`存放事务数据与事务状态，使用高速的`内存存储`存放参与者的执行状态，如 MySQL + Redis 混合使用。事务数据和状态只会在执行前和执行后各产生一次写操作，丢失可能会产生不一致，后果严重；参与者状态在每个方法执行后写一次，写次数和参与者数量相关，如果状态丢失会导致重试，而参与者都需要实现幂等，所以不会有一致性问题。
 
