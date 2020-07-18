@@ -74,14 +74,6 @@ Partner 分为以下三种：
 | DoNext() | Success |
 | Undo() | Success |
 
-<table>
-	<tr> <th></th> <th>期望的返回值</th> </tr>
-	<tr> <td>Do() of NormalPartner</td> <td>Success / Fail / Uncertain / Error</td> </tr>
-	<tr> <td>Do() of UncertainPartner</td> <td>Success / Fail</td> </tr>
-	<tr> <td>DoNext()</td> <td>Success</td> </tr>
-	<tr> <td>Undo()</td> <td>Success</td> </tr>
-</table>	
-
 特别说明：
 - Success 表示执行成功，Fail 表示执行失败，Uncertain 表示结果不确定；
 - Do() 返回为 Fail 会认为未产生作用，不会调用该 Partner 的 Undo()；
