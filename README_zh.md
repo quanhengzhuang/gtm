@@ -2,9 +2,9 @@
 
 [English](https://github.com/quanhengzhuang/gtm/blob/master/README.md)
 
-GTM 的全称是 `Global Transaction Manager`，是一个解决分布式事务问题的框架，基于 Go 编写。GTM 的原理基于 2PC 协议，但经过改造后，比其更易用，允许业务实现更少的接口，尤其是回滚接口。基于对大量业务场景的深入思考，以及长期的实践经验，我们认为，很多业务场景并不需要实现回滚接口。本质上，GTM 是 2PC 的超集，可以实现 2PC 的所有场景。
+GTM 的全称是 `Global Transaction Manager`，是一个解决分布式事务问题的框架，基于 Go 编写。GTM 的原理基于 2PC 协议，但经过改造后，比其更易用，允许业务实现更少的接口，尤其是回滚接口。基于长期的实践经验，以及对大量业务场景的深入思考，我们认为，很多时候并不需要实现回滚接口。本质上，GTM 是 2PC 的超集，可以实现 2PC 的所有场景。
 
-一个 GTM 事务由多个 `Partner` 组成，Partner 是实际业务的封装单元。Partner 在 GTM 中被划分为三类：支持回滚的、不支持回滚且结果不确定的、不支持回滚但能确保成功的，即 NormalPartner、UncertainPartner、CertainPartner。将实际业务套用这三种 Partner，GTM 能保证这些 Partner 的执行结果要么全成功，要么全失败。
+一个 GTM 事务由多个 `Partner` 组成，Partner 是实际业务的封装单元。Partner 在 GTM 中被划分为三类：支持回滚的（`NormalPartner`）、不支持回滚且结果不确定的（`UncertainPartner`）、不支持回滚但能确保成功的（`CertainPartner`）。将业务套用这三种 Partner，GTM 能保证这些 Partner 执行结果的一致性，即要么全部成功，要么全部失败。
 
 ## 举例说明
 拿一个最简单的场景举例：`A 给 B 转账10元钱`。
@@ -16,12 +16,16 @@ GTM 的全称是 `Global Transaction Manager`，是一个解决分布式事务�
 | A | 1. 冻结余额10元 | 3. 扣除冻结10元 | 5. 解除冻结10元 |
 | B | 2. 增加冻结10元 | 4. 解除冻结10元 | 6. 扣减冻结10元 |
 
+执行成功的路径为 1->2->3->4，执行失败的路径可能是 1->2->5->6（失败的路径会有多种）。
+
 GTM 模式只需要实现`2个接口`：
 
 | | Do | DoNext | Undo |
 | - | :-: | :-: | :-: |
 | A (UncertainPartner) | 1. 余额扣减10元 | | |
 | B (CertainPartner) | | 2. 余额增加10元 | |
+
+执行成功的路径为 1->2，执行失败的路径是 1 执行失败。
 
 ### 为什么 B 不需要实现回滚？
 我们认为 B 的加钱操作，在`实际业务场景中`的结果是确定性的，即可以确保成功。即使暂时不成功，也能在重试后成功。
