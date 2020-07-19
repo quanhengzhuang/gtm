@@ -8,11 +8,9 @@ import (
 // Transaction is the definition of GTM transaction.
 // Including multiple NormalPartners, one UncertainPartner, multiple CertainPartners.
 type Transaction struct {
-	ID   string
-	Name string
-
+	ID      string
+	Name    string
 	Times   int
-	StartAt time.Time
 	RetryAt time.Time
 	Timeout time.Duration
 
@@ -20,6 +18,8 @@ type Transaction struct {
 	UncertainPartner UncertainPartner
 	CertainPartners  []CertainPartner
 	AsyncPartners    []CertainPartner
+
+	startAt time.Time
 }
 
 type Result string
@@ -186,7 +186,7 @@ func (tx *Transaction) Execute() (result Result, err error) {
 }
 
 func (tx *Transaction) execute() (result Result, err error) {
-	tx.StartAt = time.Now()
+	tx.startAt = time.Now()
 
 	result, undoOffset, err := tx.do()
 
@@ -249,7 +249,7 @@ func (tx *Transaction) undo(undoOffset int) error {
 // saveResult saves the final result of the transaction.
 // Cost is the sum of the execution time of each transaction.
 func (tx *Transaction) saveResult(result Result) error {
-	cost := time.Since(tx.StartAt)
+	cost := time.Since(tx.startAt)
 
 	if err := tx.storage().SaveTransactionResult(tx, cost, Fail); err != nil {
 		return fmt.Errorf("save transaction result failed: %v, %v, %v", err, cost, Fail)
