@@ -32,6 +32,7 @@ CREATE TABLE gtm_transactions (
 	retry_at   timestamp NOT NULL,
 	timeout    int UNSIGNED NOT NULL,
 	result     enum('success', 'fail', '') NOT NULL,
+	cost       bigint UNSIGNED NOT NULL,
 	content    mediumtext,
 	created_at timestamp NOT NULL,
 	updated_at timestamp NOT NULL,
@@ -47,6 +48,7 @@ type DBStorageTransaction struct {
 	RetryAt   time.Time
 	Timeout   int
 	Result    string
+	Cost      time.Duration
 	Content   string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -65,7 +67,7 @@ CREATE TABLE gtm_partner_result (
 	phase           varchar(20) NOT NULL,
 	offset          tinyint UNSIGNED NOT NULL,
 	result          enum('success', 'fail', 'uncertain') NOT NULL,
-	cost            int UNSIGNED NOT NULL,
+	cost            bigint UNSIGNED NOT NULL,
 	created_at      timestamp NOT NULL,
 	updated_at      timestamp NOT NULL,
 
@@ -79,7 +81,7 @@ type DBStoragePartnerResult struct {
 	Offset        int
 	Phase         string
 	Result        string
-	Cost          int
+	Cost          time.Duration
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -98,7 +100,7 @@ func (s *DBStorage) SaveTransaction(tx *Transaction) (id string, err error) {
 	data := DBStorageTransaction{
 		Name:    tx.Name,
 		Times:   tx.Times,
-		RetryAt: tx.RetryTime,
+		RetryAt: tx.RetryAt,
 		Timeout: int(tx.Timeout.Seconds()),
 		Content: content,
 	}
@@ -111,8 +113,9 @@ func (s *DBStorage) SaveTransaction(tx *Transaction) (id string, err error) {
 }
 
 // SaveTransactionResult save transaction results to db.
-func (s *DBStorage) SaveTransactionResult(tx *Transaction, result Result) error {
+func (s *DBStorage) SaveTransactionResult(tx *Transaction, cost time.Duration, result Result) error {
 	if err := s.db.Model(DBStorageTransaction{}).Where("id=?", tx.ID).Update(map[string]interface{}{
+		"cost":   int64(cost),
 		"result": result,
 	}).Error; err != nil {
 		return fmt.Errorf("update err: %v", err)
@@ -132,7 +135,7 @@ func (s *DBStorage) SavePartnerResult(tx *Transaction, phase string, offset int,
 		TransactionID: txID,
 		Phase:         phase,
 		Offset:        offset,
-		Cost:          int(cost.Microseconds()),
+		Cost:          cost,
 		Result:        string(result),
 	}
 
@@ -184,6 +187,7 @@ func (s *DBStorage) GetTimeoutTransactions(count int) (txs []*Transaction, err e
 
 		tx.ID = strconv.Itoa(row.ID)
 		tx.Times = row.Times
+
 		txs = append(txs, tx)
 	}
 

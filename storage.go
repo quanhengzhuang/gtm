@@ -12,7 +12,7 @@ type Storage interface {
 
 	// Save the execution result of the transaction.
 	// Must be reliable.
-	SaveTransactionResult(tx *Transaction, result Result) error
+	SaveTransactionResult(tx *Transaction, cost time.Duration, result Result) error
 
 	// Save the execution result of partner.
 	// Performance first, not necessarily reliable.

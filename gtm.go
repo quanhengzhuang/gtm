@@ -11,9 +11,10 @@ type Transaction struct {
 	ID   string
 	Name string
 
-	Times     int
-	RetryTime time.Time
-	Timeout   time.Duration
+	Times   int
+	StartAt time.Time
+	RetryAt time.Time
+	Timeout time.Duration
 
 	NormalPartners   []NormalPartner
 	UncertainPartner UncertainPartner
@@ -48,8 +49,8 @@ var (
 )
 
 // New returns an empty GTM transaction.
-func New() *Transaction {
-	return &Transaction{}
+func New(name string) *Transaction {
+	return &Transaction{Name: name}
 }
 
 // SetStorage is used to set the default storage engine.
@@ -129,7 +130,7 @@ func (tx *Transaction) AddPartners(normalPartners []NormalPartner, uncertainPart
 // ExecuteAsync save the transaction only and will return immediately.
 // The transaction will be executed asynchronously in the background.
 func (tx *Transaction) ExecuteAsync() (err error) {
-	tx.RetryTime = time.Now()
+	tx.RetryAt = time.Now()
 	tx.Timeout = tx.timeout()
 	if _, err := tx.storage().SaveTransaction(tx); err != nil {
 		return fmt.Errorf("save transaction failed: %v", err)
@@ -175,7 +176,7 @@ func (tx *Transaction) ExecuteRetry() (result Result, err error) {
 // 3. When the result is Success/Fail, it means that the transaction has reached the final state.
 func (tx *Transaction) Execute() (result Result, err error) {
 	tx.Times = 1
-	tx.RetryTime = tx.timer().CalcRetryTime(0, tx.timeout())
+	tx.RetryAt = tx.timer().CalcRetryTime(0, tx.timeout())
 	tx.Timeout = tx.timeout()
 	if tx.ID, err = tx.storage().SaveTransaction(tx); err != nil {
 		return Fail, fmt.Errorf("save transaction failed: %v", err)
@@ -185,6 +186,8 @@ func (tx *Transaction) Execute() (result Result, err error) {
 }
 
 func (tx *Transaction) execute() (result Result, err error) {
+	tx.StartAt = time.Now()
+
 	result, undoOffset, err := tx.do()
 
 	switch result {
@@ -195,8 +198,8 @@ func (tx *Transaction) execute() (result Result, err error) {
 		}
 
 		if done {
-			if err := tx.storage().SaveTransactionResult(tx, Success); err != nil {
-				return Uncertain, fmt.Errorf("save transaction result failed: %v, %v", Success, err)
+			if err := tx.saveResult(Success); err != nil {
+				return Uncertain, fmt.Errorf("save result failed: %v, %v", err, Success)
 			}
 		}
 
@@ -206,8 +209,8 @@ func (tx *Transaction) execute() (result Result, err error) {
 			return Uncertain, fmt.Errorf("undo() failed: %v", err)
 		}
 
-		if err := tx.storage().SaveTransactionResult(tx, Fail); err != nil {
-			return Uncertain, fmt.Errorf("save transaction result failed: %v, %v", Fail, err)
+		if err := tx.saveResult(Fail); err != nil {
+			return Uncertain, fmt.Errorf("save result failed: %v, %v", err, Fail)
 		}
 
 		return Fail, err
@@ -241,6 +244,18 @@ func (tx *Transaction) doNext() (done bool, err error) {
 // Undo expects all results to be successful, otherwise it will try again.
 func (tx *Transaction) undo(undoOffset int) error {
 	return tx.doer().Undo(tx, undoOffset)
+}
+
+// saveResult saves the final result of the transaction.
+// Cost is the sum of the execution time of each transaction.
+func (tx *Transaction) saveResult(result Result) error {
+	cost := time.Since(tx.StartAt)
+
+	if err := tx.storage().SaveTransactionResult(tx, cost, Fail); err != nil {
+		return fmt.Errorf("save transaction result failed: %v, %v, %v", err, cost, Fail)
+	}
+
+	return nil
 }
 
 // getPartnerResult returns the execution result of the partner at each phase.
