@@ -93,7 +93,7 @@ func (*DBStoragePartnerResult) TableName() string {
 // SaveTransaction save transaction data to db.
 func (s *DBStorage) SaveTransaction(tx *Transaction) (id string, err error) {
 	var content string
-	if content, err = s.encode(tx); err != nil {
+	if content, err = s.Encode(tx); err != nil {
 		return "", fmt.Errorf("encode err: %v", err)
 	}
 
@@ -180,13 +180,14 @@ func (s *DBStorage) GetTimeoutTransactions(count int) (txs []*Transaction, err e
 	}
 
 	for _, row := range rows {
-		tx, err := s.decode(row.Content)
+		tx, err := s.Decode(row.Content)
 		if err != nil {
 			return nil, fmt.Errorf("tx decode err: %v", err)
 		}
 
 		tx.ID = strconv.Itoa(row.ID)
 		tx.Times = row.Times
+		tx.RetryAt = row.RetryAt
 
 		txs = append(txs, tx)
 	}
@@ -200,7 +201,7 @@ func (s *DBStorage) Register(values ...interface{}) {
 	}
 }
 
-func (s *DBStorage) encode(tx *Transaction) (string, error) {
+func (s *DBStorage) Encode(tx *Transaction) (string, error) {
 	var buffer bytes.Buffer
 	if err := gob.NewEncoder(&buffer).Encode(tx); err != nil {
 		return "", fmt.Errorf("gob encode err: %v", err)
@@ -209,7 +210,7 @@ func (s *DBStorage) encode(tx *Transaction) (string, error) {
 	return base64.StdEncoding.EncodeToString(buffer.Bytes()), nil
 }
 
-func (s *DBStorage) decode(content string) (*Transaction, error) {
+func (s *DBStorage) Decode(content string) (*Transaction, error) {
 	data, err := base64.StdEncoding.DecodeString(content)
 	if err != nil {
 		return nil, fmt.Errorf("base64 decode err :%v", err)
