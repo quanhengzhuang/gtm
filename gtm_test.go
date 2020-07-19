@@ -23,7 +23,7 @@ func init() {
 }
 
 func TestNew(t *testing.T) {
-	tx := gtm.New()
+	tx := gtm.New("user-transfer")
 	tx.AddNormal(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
 	tx.AddUncertain(&OrderCreator{OrderID: "100001", UserID: 20001, ProductID: 31, Amount: 99})
 	tx.AddAsync(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
@@ -50,7 +50,7 @@ func TestNew(t *testing.T) {
 
 func TestAsync(t *testing.T) {
 	for i := 0; i < 10; i++ {
-		tx := gtm.New()
+		tx := gtm.New("test-tx-async")
 		tx.AddNormal(&Payer{OrderID: "100001", UserID: 20001, Amount: 99})
 		tx.AddUncertain(&OrderCreator{OrderID: "100001", UserID: 20001, ProductID: 31, Amount: 99})
 

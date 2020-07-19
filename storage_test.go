@@ -43,7 +43,7 @@ func (s *LevelStorage) SaveTransaction(g *gtm.Transaction) (id string, err error
 	g.ID = time.Now().Format("20060102150405")
 
 	// add retry key
-	retry := s.getRetryKey(g.RetryTime, g.ID)
+	retry := s.getRetryKey(g.RetryAt, g.ID)
 	if err := s.db.Put([]byte(retry), []byte(fmt.Sprintf("%v", g.ID)), nil); err != nil {
 		return "", fmt.Errorf("db put failed: %v", err)
 	}
@@ -63,7 +63,7 @@ func (s *LevelStorage) SaveTransaction(g *gtm.Transaction) (id string, err error
 	return g.ID, nil
 }
 
-func (s *LevelStorage) SaveTransactionResult(tx *gtm.Transaction, result gtm.Result) error {
+func (s *LevelStorage) SaveTransactionResult(tx *gtm.Transaction, cost time.Duration, result gtm.Result) error {
 	key := fmt.Sprintf("gtm-result-%v", tx.ID)
 	if err := s.db.Put([]byte(key), []byte(result), nil); err != nil {
 		return fmt.Errorf("db put failed: %v", err)
@@ -71,7 +71,7 @@ func (s *LevelStorage) SaveTransactionResult(tx *gtm.Transaction, result gtm.Res
 
 	// delete retry
 	if result == gtm.Success || result == gtm.Fail {
-		key := s.getRetryKey(tx.RetryTime, tx.ID)
+		key := s.getRetryKey(tx.RetryAt, tx.ID)
 		if err := s.db.Delete(key, nil); err != nil {
 			return fmt.Errorf("delete retry err: %v", err)
 		}
@@ -101,7 +101,7 @@ func (s *LevelStorage) UpdateTransactionRetryTime(g *gtm.Transaction, times int,
 	}
 
 	// delete old retry key
-	oldKey := s.getRetryKey(g.RetryTime, g.ID)
+	oldKey := s.getRetryKey(g.RetryAt, g.ID)
 	if err := s.db.Delete(oldKey, nil); err != nil {
 		return fmt.Errorf("delete err: %v", err)
 	}
